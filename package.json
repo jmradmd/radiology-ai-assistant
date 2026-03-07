@@ -1,0 +1,53 @@
+{
+  "name": "rad-assist",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@rad-assist/web",
+    "dev:desktop": "npm run dev --workspace=@rad-assist/desktop",
+    "build": "npm run build --workspace=@rad-assist/web",
+    "build:desktop": "npm run build --workspace=@rad-assist/desktop",
+    "package:desktop": "npm run package --workspace=@rad-assist/desktop",
+    "package:desktop:mac": "npm run package:mac --workspace=@rad-assist/desktop",
+    "package:desktop:win": "npm run package:win --workspace=@rad-assist/desktop",
+    "db:generate": "npm run generate --workspace=@rad-assist/db",
+    "db:push": "npm run push --workspace=@rad-assist/db",
+    "db:studio": "npm run studio --workspace=@rad-assist/db",
+    "seed:protocols": "npx tsx scripts/seed-protocols.ts",
+    "ingest:institution-a": "npx tsx scripts/ingest-institution.ts --institution INSTITUTION_A",
+    "ingest:institution-b": "npx tsx scripts/ingest-institution.ts --institution INSTITUTION_B",
+    "ingest:all": "npx tsx scripts/ingest-institution.ts --all",
+    "ingest:all:clean": "npx tsx scripts/ingest-institution.ts --all --clean",
+    "ingest:teams-abdominal": "npx tsx scripts/ingest-teams-docs.ts",
+    "ingest:teams-abdominal:clean": "npx tsx scripts/ingest-teams-docs.ts --clean",
+    "ingest:teams-abdominal:dry-run": "npx tsx scripts/ingest-teams-docs.ts --dry-run",
+    "ingest:guidelines": "npx tsx scripts/ingest-guidelines.ts",
+    "ingest:directory": "npx tsx scripts/ingest-directory.ts",
+    "ingest:directory:clean": "npx tsx scripts/ingest-directory.ts --clean",
+    "backfill:institution": "npx tsx scripts/backfill-institution.ts",
+    "ingest:troubleshooting": "npx tsx scripts/it-troubleshooting/ingest-troubleshooting.ts",
+    "ingest:troubleshooting:clean": "npx tsx scripts/it-troubleshooting/ingest-troubleshooting.ts --clean",
+    "ingest:troubleshooting:dry-run": "npx tsx scripts/it-troubleshooting/ingest-troubleshooting.ts --dry-run",
+    "ingest:folder": "npx tsx scripts/ingest-folder.ts",
+    "reingest": "npx tsx scripts/reingest.ts",
+    "seed:demo": "npx tsx scripts/seed-demo.ts",
+    "seed:demo:clean": "npx tsx scripts/seed-demo.ts --clean"
+  },
+  "devDependencies": {
+    "@types/pdf-parse": "^1.1.5",
+    "pdf-parse": "^1.1.1",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
+    "cheerio": "^1.2.0",
+    "mammoth": "^1.9.0",
+    "pptx-parser": "1.1.7-beta.9"
+  }
+}

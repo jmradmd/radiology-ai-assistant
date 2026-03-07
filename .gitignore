@@ -1,0 +1,23 @@
+node_modules/
+.next/
+.turbo/
+*.env
+*.env.local
+.DS_Store
+
+# PDF policy folders (too large for git, cause bus errors)
+institution-a-policies/
+institution-b-policies/
+teams_standard_docs/
+ACR Guidelines/
+logo/
+
+# Knowledge corpus data (generated, not source code)
+knowledge-data/
+*.log
+.cursor/
+**/*.tsbuildinfo
+**/dist/
+*.pem
+*.key
+*.bak

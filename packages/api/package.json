@@ -1,0 +1,23 @@
+{
+  "name": "@rad-assist/api",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@rad-assist/db": "*",
+    "@rad-assist/shared": "*",
+    "@supabase/supabase-js": "^2.39.0",
+    "@trpc/server": "^11.0.0-rc.0",
+    "jwt-decode": "^4.0.0",
+    "openai": "^4.24.0",
+    "superjson": "^2.2.1",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}

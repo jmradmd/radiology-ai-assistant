@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <!-- App Logo (Teal) -->
+  <!-- Two arcs per side, dual-tone opacity -->
+  
+  <g transform="translate(24, 24)">
+    <!-- Center dot -->
+    <circle cx="0" cy="0" r="5" fill="#0d9488"/>
+    
+    <!-- Inner arcs (full opacity) -->
+    <path d="M-12 -10 A16 16 0 0 0 -12 10" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round"/>
+    <path d="M12 -10 A16 16 0 0 1 12 10" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round"/>
+    
+    <!-- Outer arcs (reduced opacity) -->
+    <path d="M-20 -16 A26 26 0 0 0 -20 16" fill="none" stroke="#14b8a6" stroke-width="3" stroke-linecap="round"/>
+    <path d="M20 -16 A26 26 0 0 1 20 16" fill="none" stroke="#14b8a6" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -1,0 +1,65 @@
+appId: com.rad-assist.desktop
+productName: Radiology AI Assistant
+copyright: Copyright © 2025-2026 Radiology AI Assistant Contributors
+
+directories:
+  output: release
+  buildResources: assets
+
+files:
+  - dist/**/*
+  - assets/**/*
+  - package.json
+
+extraResources:
+  - from: assets/
+    to: assets/
+    filter:
+      - "**/*"
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: assets/icon.ico
+  publisherName: "Radiology AI Assistant"
+
+nsis:
+  oneClick: false
+  perMachine: true
+  allowToChangeInstallationDirectory: true
+  installerIcon: assets/icon.ico
+  uninstallerIcon: assets/icon.ico
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: RadAssist
+
+mac:
+  target:
+    - target: dmg
+      arch: [universal]
+  icon: assets/icon.icns
+  category: public.app-category.medical
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.inherit.plist
+
+dmg:
+  sign: false
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+linux:
+  target: [AppImage]
+  icon: assets/icon.png
+  category: Medical
+
+publish:
+  provider: generic
+  url: https://releases.example.com/desktop

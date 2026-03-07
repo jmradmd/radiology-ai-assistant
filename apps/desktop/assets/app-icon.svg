@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- App Icon - For iOS/Android -->
+  
+  <!-- Background -->
+  <rect width="512" height="512" rx="115" fill="url(#gradient)"/>
+  
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14b8a6"/>
+      <stop offset="100%" stop-color="#0d9488"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Logo mark (white) -->
+  <g transform="translate(256, 256)">
+    <circle cx="0" cy="0" r="42" fill="white"/>
+    
+    <!-- Inner arcs -->
+    <path d="M-100 -80 A130 130 0 0 0 -100 80" fill="none" stroke="white" stroke-width="26" stroke-linecap="round"/>
+    <path d="M100 -80 A130 130 0 0 1 100 80" fill="none" stroke="white" stroke-width="26" stroke-linecap="round"/>
+    
+    <!-- Outer arcs -->
+    <path d="M-166 -132 A212 212 0 0 0 -166 132" fill="none" stroke="white" stroke-opacity="0.6" stroke-width="26" stroke-linecap="round"/>
+    <path d="M166 -132 A212 212 0 0 1 166 132" fill="none" stroke="white" stroke-opacity="0.6" stroke-width="26" stroke-linecap="round"/>
+  </g>
+</svg>

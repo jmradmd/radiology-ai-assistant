@@ -1,0 +1,441 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector]
+}
+
+// ==================== USER MANAGEMENT ====================
+
+model User {
+  id           String        @id @default(uuid())
+  externalId   String?       @unique // Azure AD object ID
+  email        String        @unique
+  name         String
+  role         UserRole      @default(STAFF)
+  department   String?
+  subspecialty Subspecialty?
+  phoneWork    String?
+  phoneMobile  String?
+  phonePager   String?
+  avatarUrl    String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  // Relations
+  sentMessages                 Message[]
+  conversationParticipants     ConversationParticipant[]
+  scheduleAssignments          ScheduleAssignment[]
+  requests                     Request[]                   @relation("RequestedBy")
+  assignedRequests             Request[]                   @relation("AssignedTo")
+  auditLogs                    AuditLog[]
+  notifications                Notification[]
+  phiDetectionLogs             PHIDetectionLog[]
+
+  @@index([email])
+  @@index([subspecialty])
+}
+
+enum UserRole {
+  ADMIN
+  COORDINATOR
+  ATTENDING
+  FELLOW
+  RESIDENT
+  TECHNICIAN
+  STAFF
+}
+
+enum Subspecialty {
+  ABDOMINAL
+  NEURO
+  MSK
+  CHEST
+  IR
+  PEDS
+  BREAST
+  NUCLEAR
+  CARDIAC
+  EMERGENCY
+}
+
+// Institution - source institution for policy documents
+enum Institution {
+  INSTITUTION_A  // Primary hospital policies
+  INSTITUTION_B  // Department-specific protocols
+  SHARED   // Policies that apply to both (rare)
+}
+
+// ==================== CONVERSATIONS & MESSAGES ====================
+
+model Conversation {
+  id                String           @id @default(uuid())
+  title             String?
+  type              ConversationType @default(DIRECT)
+  institutionFilter Institution?     // Locks RAG chat to specific institution
+  categoryFilter    String?          // Locks RAG chat to specific category
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  messages     Message[]
+  participants ConversationParticipant[]
+
+  @@index([updatedAt])
+  @@index([institutionFilter])
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP
+  RAG_CHAT
+  BROADCAST
+}
+
+model ConversationParticipant {
+  id             String    @id @default(uuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime  @default(now())
+  lastReadAt     DateTime?
+  isAdmin        Boolean   @default(false)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String      @id @default(uuid())
+  conversationId String
+  senderId       String
+  content        String
+  contentType    MessageType @default(TEXT)
+  metadata       Json? // For RAG citations, attachments, etc.
+  createdAt      DateTime    @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id])
+
+  @@index([conversationId, createdAt])
+}
+
+enum MessageType {
+  TEXT
+  RAG_RESPONSE
+  SYSTEM
+  FILE
+  IMAGE
+}
+
+// ==================== SCHEDULING ====================
+
+model Schedule {
+  id            String    @id @default(uuid())
+  effectiveDate DateTime  @db.Date
+  shiftType     ShiftType
+  startTime     String // "07:00"
+  endTime       String // "17:00"
+  location      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  assignments ScheduleAssignment[]
+
+  @@unique([effectiveDate, shiftType, location])
+  @@index([effectiveDate])
+}
+
+enum ShiftType {
+  DAY
+  EVENING
+  NIGHT
+  WEEKEND_DAY
+  WEEKEND_NIGHT
+  CALL
+}
+
+model ScheduleAssignment {
+  id           String       @id @default(uuid())
+  scheduleId   String
+  userId       String
+  subspecialty Subspecialty
+  isPrimary    Boolean      @default(true)
+  coverageType CoverageType @default(ON_SITE)
+  notes        String?
+  createdAt    DateTime     @default(now())
+
+  schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([scheduleId, userId, subspecialty])
+  @@index([userId])
+  @@index([subspecialty])
+}
+
+enum CoverageType {
+  ON_SITE
+  REMOTE
+  ON_CALL
+}
+
+// ==================== REQUEST ROUTING ====================
+
+model Request {
+  id String @id @default(uuid())
+
+  type         RequestType
+  priority     Priority      @default(ROUTINE)
+  status       RequestStatus @default(PENDING)
+  subspecialty Subspecialty?
+
+  requestedById String
+  assignedToId  String?
+
+  subject     String
+  description String?
+  location    String? // "ED Bay 4", "Floor 3"
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+
+  requestedBy   User                @relation("RequestedBy", fields: [requestedById], references: [id])
+  assignedTo    User?               @relation("AssignedTo", fields: [assignedToId], references: [id])
+  escalations   RequestEscalation[]
+  notifications Notification[]
+
+  @@index([status, priority])
+  @@index([assignedToId])
+  @@index([createdAt])
+}
+
+enum RequestType {
+  PROTOCOL_QUESTION
+  SPEAK_TO_RADIOLOGIST
+  SCHEDULE_INQUIRY
+  URGENT_STAT
+  ADMINISTRATIVE
+}
+
+enum Priority {
+  STAT
+  URGENT
+  ROUTINE
+}
+
+enum RequestStatus {
+  PENDING
+  ASSIGNED
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  ESCALATED
+  CANCELLED
+}
+
+model RequestEscalation {
+  id          String   @id @default(uuid())
+  requestId   String
+  fromUserId  String?
+  toUserId    String
+  reason      String?
+  escalatedAt DateTime @default(now())
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+}
+
+// ==================== NOTIFICATIONS ====================
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  requestId String?
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?
+
+  status         NotificationStatus @default(PENDING)
+  sentAt         DateTime?
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  acknowledgedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id])
+  request Request? @relation(fields: [requestId], references: [id])
+
+  @@index([userId, status])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  PUSH
+  SMS
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  ACKNOWLEDGED
+  FAILED
+}
+
+// Knowledge domain — controls which system prompt and knowledge base to use
+enum Domain {
+  PROTOCOL  // Institutional protocols and policies (existing)
+  KNOWLEDGE // Radiology knowledge engine
+}
+
+// Authority level for protocol provenance
+enum AuthorityLevel {
+  INSTITUTIONAL
+  NATIONAL_GUIDELINE
+  SOCIETY_GUIDELINE
+}
+
+enum DocumentTier {
+  reference
+  clinical
+  educational
+}
+
+// ==================== RAG DOCUMENTS ====================
+
+model Document {
+  id             String         @id @default(uuid())
+  title          String
+  source         String // "guidelines", "institution-a", "institution-b", "knowledge-base", etc.
+  category       String?
+  subspecialties Subspecialty[]
+  version        String?
+  content        String         @db.Text
+  metadata       Json?
+  institution    Institution    @default(INSTITUTION_B) // Source institution
+  domain         Domain         @default(PROTOCOL) // Knowledge domain
+  authorityLevel AuthorityLevel @default(INSTITUTIONAL)
+  sourceCollection String? // Logical ingestion source for special routing/weighting (e.g., "teams_abdominal")
+  documentTier    DocumentTier? @default(clinical)
+  url            String? // Stored source filename/path used for internal document linking
+  guidelineSource String?
+  guidelineYear   Int?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chunks DocumentChunk[]
+
+  @@index([category])
+  @@index([institution])
+  @@index([institution, category])
+  @@index([domain])
+  @@index([authorityLevel])
+  @@index([authorityLevel, category])
+  @@index([sourceCollection])
+  @@index([documentTier])
+}
+
+model DocumentChunk {
+  id          String                      @id @default(uuid())
+  documentId  String
+  chunkIndex  Int
+  content     String                      @db.Text
+  embedding   Unsupported("vector(1536)")?
+  metadata    Json? // section, page, is_table, etc.
+  institution Institution?                // Denormalized for query performance
+  domain      Domain         @default(PROTOCOL) // Denormalized for query performance
+  authorityLevel AuthorityLevel @default(INSTITUTIONAL) // Denormalized for query performance
+  sourceCollection String? // Denormalized sourceCollection for query-time filtering/scoring
+  documentTier    DocumentTier? @default(clinical) // Denormalized tier for retrieval scoring
+
+  createdAt DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex])
+  @@index([documentId])
+  @@index([institution])
+  @@index([domain])
+  @@index([authorityLevel])
+  @@index([sourceCollection])
+  @@index([documentTier])
+}
+
+// ==================== AUDIT LOGGING (HIPAA) ====================
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  userId     String?
+  action     AuditAction
+  resource   String // Table name
+  resourceId String?
+  details    Json? // Sanitized - NO PHI
+  ipAddress  String?
+  userAgent  String?
+  timestamp  DateTime    @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId, timestamp])
+  @@index([resource, resourceId])
+  @@index([timestamp])
+}
+
+enum AuditAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+  SEARCH
+}
+
+// ==================== PHI DETECTION LOGGING (HIPAA) ====================
+
+model PHIDetectionLog {
+  id            String   @id @default(uuid())
+  
+  // User context (nullable for anonymous/pre-auth detection)
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
+  
+  // Detection details
+  inputHash     String   // SHA-256 hash of input - NEVER store actual PHI
+  detectionType String   // "MRN" | "SSN" | "DOB" | "NAME" | "PHONE" | "EMAIL" | "ADDRESS"
+  patternMatched String? // Which regex pattern triggered (for debugging)
+  confidence    Float    @default(1.0)
+  
+  // Action taken
+  blocked       Boolean  @default(true)
+  clientSide    Boolean  @default(false) // true if caught on frontend
+  
+  // Audit metadata
+  ipAddress     String?
+  userAgent     String?
+  endpoint      String?  // Which API endpoint was called
+  
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([detectionType])
+  @@index([createdAt])
+  @@index([blocked])
+}

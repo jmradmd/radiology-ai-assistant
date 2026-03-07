@@ -1,0 +1,11 @@
+# Placeholder for desktop app assets
+# Required icon files:
+# - icon.ico (Windows app icon)
+# - icon.icns (macOS app icon)
+# - icon.png (Linux app icon, 512x512)
+# - tray-icon.png (Windows/Linux tray, 32x32)
+# - tray-icon@2x.png (Windows HiDPI, 64x64)
+# - tray-icon-Template.png (macOS tray, 22x22, grayscale)
+# - tray-icon-Template@2x.png (macOS Retina, 44x44, grayscale)
+# - tray-icon-alert.png (Alert state, 32x32)
+# - tray-icon-alert-Template.png (macOS alert, 22x22)

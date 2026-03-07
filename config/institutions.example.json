@@ -1,0 +1,54 @@
+{
+  "institutions": [
+    {
+      "id": "INSTITUTION_A",
+      "displayName": "Primary Hospital",
+      "shortName": "Hospital A",
+      "sourceFolder": "institution-a-policies",
+      "description": "Hospital-wide policies and procedures",
+      "colors": {
+        "primary": "#1E40AF",
+        "background": "#DBEAFE",
+        "text": "#1E3A8A",
+        "border": "#93C5FD"
+      }
+    },
+    {
+      "id": "INSTITUTION_B",
+      "displayName": "Department / Specialty Group",
+      "shortName": "Dept B",
+      "sourceFolder": "institution-b-policies",
+      "description": "Department-specific protocols and standards",
+      "colors": {
+        "primary": "#B91C1C",
+        "background": "#FEE2E2",
+        "text": "#991B1B",
+        "border": "#FCA5A5"
+      }
+    },
+    {
+      "id": "SHARED",
+      "displayName": "Shared / Cross-Institutional",
+      "shortName": "Shared",
+      "sourceFolder": null,
+      "description": "Policies that apply across all institutions (typically set manually)"
+    }
+  ],
+  "guidelines": {
+    "sourceFolder": "guidelines",
+    "authorityLevel": "NATIONAL_GUIDELINE",
+    "guidelineSource": "CUSTOM",
+    "description": "Place guideline PDFs in subdirectories organized by panel or topic"
+  },
+  "teams": {
+    "sourceFolder": "teams_standard_docs",
+    "sourceCollection": "teams_custom",
+    "institution": "INSTITUTION_B",
+    "description": "Departmental team standards and reference documents"
+  },
+  "notes": {
+    "setup": "1. Copy this file to config/institutions.json and customize for your organization. 2. Update INSTITUTION_CONFIG in packages/shared/src/constants.ts to match. 3. Update the Institution enum in packages/db/prisma/schema.prisma if adding new institutions.",
+    "colors": "Colors are used for institution badges and toggle controls in the chat UI.",
+    "sourceFolder": "Each institution's sourceFolder should match a directory at the project root containing policy PDFs."
+  }
+}
