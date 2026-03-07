@@ -88,6 +88,8 @@ A comprehensive, open-source clinical decision support framework for radiology d
 | State | Zustand (persisted stores) |
 | Validation | Zod (shared schemas between client and server) |
 
+See [CLAUDE.md](CLAUDE.md) for detailed architecture documentation, database schema, API reference, and development guidelines.
+
 ---
 
 ## Project Structure
