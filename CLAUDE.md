@@ -131,6 +131,7 @@ tRPC backend routers:
 - `src/router.ts` -- Root router combining all sub-routers
 - `src/routers/*.ts` -- Domain routers (user, conversation, request, schedule, rag)
 - `src/routers/message.ts` -- Message router (list, send, unreadCount)
+- `src/routers/system.ts` -- System router with `healthCheck` query (publicProcedure, no auth required)
 - `src/trpc.ts` -- tRPC initialization with procedure hierarchy
 - `src/context.ts` -- Request context with auth (prisma, user)
 - `src/lib/rag-config.ts` -- RAG configuration (thresholds, emergency keywords)
@@ -149,6 +150,7 @@ tRPC backend routers:
 - `src/lib/clarification-guard.ts` -- Clarification prompt gating and deduplication logic
 - `src/lib/source-relevance.ts` -- Source relevance scoring and filtering utilities
 - `src/lib/discrepancy-detection.ts` -- Institutional policy discrepancy detection (planned)
+- `src/lib/provider-health.ts` -- Provider health checking and local model discovery. `discoverLocalModels()` queries GET /v1/models with 3s timeout and 60s cache, classifies models as chat vs embedding (by type field or name heuristic). `checkProviderHealth()` probes local server once, checks embedding and LLM provider config, returns status/provider/model/message for each. Top-level try/catch returns healthy on unexpected errors. Standalone `isRealApiKey()` duplicate.
 
 ### `@rad-assist/db` (packages/db)
 Prisma ORM:
@@ -493,6 +495,12 @@ rag.listDocuments  // List all active documents with filters
 rag.uploadDocument // Admin: upload and embed new document
 ```
 
+```typescript
+// packages/api/src/routers/system.ts
+
+system.healthCheck     // Provider configuration validation (public, no auth). Returns llm/embedding status, provider, model, human-readable messages, and overall healthy boolean.
+```
+
 ### Hybrid Response Architecture
 
 The `rag.chat` endpoint returns both AI summary and verbatim protocol text:
@@ -811,6 +819,7 @@ Selected category gets 20% boost in vector search relevance scoring.
 | `SearchModal` | `search-modal.tsx` | Modal overlay for searching conversation history |
 | `SettingsPanel` | `settings-panel.tsx` | Slide-out panel for user preferences |
 | `SideBySideResponse` | `side-by-side-response.tsx` | Side-by-side AI summary + verbatim sources |
+| `ConfigBanner` | `config-banner.tsx` | Persistent provider health banner. Polls system.healthCheck every 30s, hidden when healthy, red for critical errors (no provider, server unreachable), amber for warnings (fallback). No dismiss button, auto-clears when healthy. |
 
 ### Dashboard Pages
 

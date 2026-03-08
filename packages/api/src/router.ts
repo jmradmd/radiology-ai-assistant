@@ -5,6 +5,7 @@ import { messageRouter } from "./routers/message";
 import { requestRouter } from "./routers/request";
 import { scheduleRouter } from "./routers/schedule";
 import { ragRouter } from "./routers/rag";
+import { systemRouter } from "./routers/system";
 
 export const appRouter = router({
   user: userRouter,
@@ -13,6 +14,7 @@ export const appRouter = router({
   request: requestRouter,
   schedule: scheduleRouter,
   rag: ragRouter,
+  system: systemRouter,
 });
 
 export type AppRouter = typeof appRouter;

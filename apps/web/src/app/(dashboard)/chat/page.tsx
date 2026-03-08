@@ -28,6 +28,7 @@ import { SearchModal } from "@/components/chat/search-modal";
 import { EmptyState } from "@/components/chat/empty-state";
 import { ChatInput, type ChatInputHandle } from "@/components/chat/chat-input";
 import { LoadingIndicator } from "@/components/chat/loading-indicator";
+import { ConfigBanner } from "@/components/chat/config-banner";
 import { INSTITUTION_CONFIG, type Institution, type PHIOverrideSelection, type VerbatimSource } from "@rad-assist/shared";
 import { trpc } from "@/lib/trpc/client";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -781,6 +782,7 @@ export default function ChatPage() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-white dark:bg-slate-900">
+        <ConfigBanner />
         {/* Messages Area */}
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
             {messages.length === 0 ? (

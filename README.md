@@ -27,6 +27,7 @@ A comprehensive, open-source clinical decision support framework for radiology d
 - Domain-aware retrieval routing (PROTOCOL / KNOWLEDGE / HYBRID)
 - Confidence scoring with configurable similarity thresholds
 - Query domain classification with emergency safety overrides
+- Provider health monitoring with persistent UI banner for misconfiguration detection
 
 ### Emergency Detection
 - Real-time clinical urgency detection via keyword and vital sign pattern matching
@@ -83,7 +84,7 @@ A comprehensive, open-source clinical decision support framework for radiology d
 | Database | PostgreSQL + pgvector |
 | Auth | Supabase Auth |
 | Real-time | Supabase Realtime |
-| AI/RAG | Multi-provider LLM (Anthropic / OpenAI / DeepSeek / Gemini / MiniMax / Kimi / Local) + multi-provider embeddings (OpenAI / Local via LM Studio/Ollama) with automatic provider detection |
+| AI/RAG | Multi-provider LLM (Anthropic / OpenAI / DeepSeek / Gemini / MiniMax / Kimi / Local) + multi-provider embeddings (OpenAI / Local via LM Studio/Ollama) with automatic provider detection and provider health check with auto-detection of local models |
 | PDF Parsing | pdf-parse, mammoth, pptx-parser |
 | State | Zustand (persisted stores) |
 | Validation | Zod (shared schemas between client and server) |
