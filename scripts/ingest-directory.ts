@@ -11,7 +11,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
-import OpenAI from "openai";
+import { generateEmbedding } from "../packages/api/src/lib/embedding-client";
 import { directoryToPlainText, DIRECTORY_SECTIONS } from "../packages/shared/src/data/directory-data";
 
 const prisma = new PrismaClient();
@@ -126,18 +126,6 @@ async function main() {
     return;
   }
 
-  // Only instantiate OpenAI when we actually need embeddings
-  const openai = new OpenAI();
-
-  const generateEmbedding = async (text: string): Promise<number[]> => {
-    const response = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: text,
-      dimensions: 1536,
-    });
-    return response.data[0].embedding;
-  };
-
   // Create document record
   const document = await prisma.document.create({
     data: {
@@ -161,7 +149,7 @@ async function main() {
   for (let i = 0; i < chunks.length; i++) {
     process.stdout.write(`  Embedding chunk ${i + 1}/${chunks.length}...`);
 
-    const embedding = await generateEmbedding(chunks[i]);
+    const embedding = await generateEmbedding(chunks[i], 'document');
 
     await prisma.$executeRaw`
       INSERT INTO "DocumentChunk" (id, "documentId", "chunkIndex", content, embedding, institution, "createdAt")

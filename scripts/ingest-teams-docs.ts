@@ -13,14 +13,13 @@
 
 import { PrismaClient } from "@prisma/client";
 import { detectPotentialPHI, TEAMS_COLLECTION_CONFIG, TEAMS_TIER_MAP } from "@rad-assist/shared";
-import OpenAI from "openai";
+import { generateEmbedding } from "../packages/api/src/lib/embedding-client";
 import * as fs from "fs";
 import * as path from "path";
 import * as pdfParse from "pdf-parse";
 import mammoth from "mammoth";
 
 const prisma = new PrismaClient();
-const openai = new OpenAI();
 
 type DocumentPriority = "CRITICAL" | "HIGH" | "STANDARD";
 
@@ -214,13 +213,7 @@ function chunkTextWithPages(pages: string[]): ChunkWithMetadata[] {
   return chunks;
 }
 
-async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await openai.embeddings.create({
-    model: "text-embedding-3-small",
-    input: text.substring(0, 8000),
-  });
-  return response.data[0].embedding;
-}
+// generateEmbedding imported from embedding-client
 
 function classifyDocument(filename: string, content: string): DocumentClassification {
   let category = "ABDOMINAL";
@@ -471,7 +464,7 @@ async function processFile(
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    const embedding = await generateEmbedding(chunk.content);
+    const embedding = await generateEmbedding(chunk.content, 'document');
     await prisma.$executeRaw`
       INSERT INTO "DocumentChunk" (
         id,

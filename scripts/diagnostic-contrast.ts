@@ -8,10 +8,9 @@
  */
 
 import { PrismaClient } from "@prisma/client";
-import OpenAI from "openai";
+import { generateEmbedding } from "../packages/api/src/lib/embedding-client";
 
 const prisma = new PrismaClient();
-const openai = new OpenAI();
 
 const DIVIDER = "=".repeat(80);
 const SUBDIV = "-".repeat(60);
@@ -275,12 +274,7 @@ async function runDiagnostics() {
 
   try {
     // Generate embedding for the query
-    const embeddingResponse = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: testQuery,
-    });
-
-    const queryEmbedding = embeddingResponse.data[0].embedding;
+    const queryEmbedding = await generateEmbedding(testQuery);
 
     // Perform vector search
     const searchResults = await prisma.$queryRaw<

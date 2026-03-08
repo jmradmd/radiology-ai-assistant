@@ -382,12 +382,12 @@ export const ragRouter = router({
           d.title as document_title,
           d.source as document_source,
           d.institution::text as document_institution,
-          1 - (dc.embedding <=> ${queryEmbedding}::vector) as similarity
+          1 - (dc.embedding <=> ${`[${queryEmbedding.join(',')}]`}::vector) as similarity
         FROM "DocumentChunk" dc
         JOIN "Document" d ON dc."documentId" = d.id
         WHERE d."isActive" = true
         ${institutionFilter}
-        ORDER BY dc.embedding <=> ${queryEmbedding}::vector
+        ORDER BY dc.embedding <=> ${`[${queryEmbedding.join(',')}]`}::vector
         LIMIT ${5}
       `;
 
@@ -1201,7 +1201,7 @@ export const ragRouter = router({
               d."guidelineSource" as guideline_source,
               d."guidelineYear" as guideline_year,
               d.metadata as document_metadata,
-              1 - (dc.embedding <=> ${queryEmbedding}::vector) as similarity,
+              1 - (dc.embedding <=> ${`[${queryEmbedding.join(',')}]`}::vector) as similarity,
               ${tierAdjustmentExpr} as tier_adjustment,
               1.20 as category_boost
             FROM "DocumentChunk" dc
@@ -1211,7 +1211,7 @@ export const ragRouter = router({
               ${authorityFilter}
               AND d.category = ${effectiveCategory}
               ${institutionFilter}
-            ORDER BY dc.embedding <=> ${queryEmbedding}::vector
+            ORDER BY dc.embedding <=> ${`[${queryEmbedding.join(',')}]`}::vector
             LIMIT 5
           `;
 
@@ -1232,7 +1232,7 @@ export const ragRouter = router({
               d."guidelineSource" as guideline_source,
               d."guidelineYear" as guideline_year,
               d.metadata as document_metadata,
-              1 - (dc.embedding <=> ${queryEmbedding}::vector) as similarity,
+              1 - (dc.embedding <=> ${`[${queryEmbedding.join(',')}]`}::vector) as similarity,
               ${tierAdjustmentExpr} as tier_adjustment,
               1.0 as category_boost
             FROM "DocumentChunk" dc
@@ -1242,7 +1242,7 @@ export const ragRouter = router({
               ${authorityFilter}
               AND d.category != ${effectiveCategory}
               ${institutionFilter}
-            ORDER BY dc.embedding <=> ${queryEmbedding}::vector
+            ORDER BY dc.embedding <=> ${`[${queryEmbedding.join(',')}]`}::vector
             LIMIT 3
           `;
 
@@ -1266,7 +1266,7 @@ export const ragRouter = router({
             d."guidelineSource" as guideline_source,
             d."guidelineYear" as guideline_year,
             d.metadata as document_metadata,
-            1 - (dc.embedding <=> ${queryEmbedding}::vector) as similarity,
+            1 - (dc.embedding <=> ${`[${queryEmbedding.join(',')}]`}::vector) as similarity,
             ${tierAdjustmentExpr} as tier_adjustment,
             1.0 as category_boost
           FROM "DocumentChunk" dc
@@ -1275,7 +1275,7 @@ export const ragRouter = router({
             ${domainFilter}
             ${authorityFilter}
             ${institutionFilter}
-          ORDER BY dc.embedding <=> ${queryEmbedding}::vector
+          ORDER BY dc.embedding <=> ${`[${queryEmbedding.join(',')}]`}::vector
           LIMIT ${RAG_CONFIG.MAX_SEARCH_RESULTS}
         `;
         return unfilteredResults;
@@ -1347,13 +1347,13 @@ export const ragRouter = router({
               d.source as document_source,
               d."guidelineSource" as guideline_source,
               d."guidelineYear" as guideline_year,
-              1 - (dc.embedding <=> ${queryEmbedding}::vector) as similarity
+              1 - (dc.embedding <=> ${`[${queryEmbedding.join(',')}]`}::vector) as similarity
             FROM "DocumentChunk" dc
             JOIN "Document" d ON dc."documentId" = d.id
             WHERE d."isActive" = true
               AND dc.domain = 'PROTOCOL'::"Domain"
               AND d."authorityLevel" IN ('NATIONAL_GUIDELINE'::"AuthorityLevel", 'SOCIETY_GUIDELINE'::"AuthorityLevel")
-            ORDER BY dc.embedding <=> ${queryEmbedding}::vector
+            ORDER BY dc.embedding <=> ${`[${queryEmbedding.join(',')}]`}::vector
             LIMIT 2
           `;
 
@@ -2646,7 +2646,7 @@ Regenerate with these corrections:
       const chunks = chunkText(input.content, 512, 100);
 
       for (let i = 0; i < chunks.length; i++) {
-        const embedding = await generateEmbedding(chunks[i]);
+        const embedding = await generateEmbedding(chunks[i], 'document');
 
         await ctx.prisma.$executeRaw`
           INSERT INTO "DocumentChunk" (id, "documentId", "chunkIndex", content, embedding, institution, domain, "authorityLevel", "createdAt")
@@ -2655,7 +2655,7 @@ Regenerate with these corrections:
             ${document.id},
             ${i},
             ${chunks[i]},
-            ${embedding}::vector,
+            ${`[${embedding.join(',')}]`}::vector,
             ${institution}::"Institution",
             'PROTOCOL'::"Domain",
             'INSTITUTIONAL'::"AuthorityLevel",

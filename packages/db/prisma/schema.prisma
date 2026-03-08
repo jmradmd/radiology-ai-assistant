@@ -356,7 +356,8 @@ model DocumentChunk {
   documentId  String
   chunkIndex  Int
   content     String                      @db.Text
-  embedding   Unsupported("vector(1536)")?
+  // Dimension determined by configured embedding model (no fixed size constraint)
+  embedding   Unsupported("vector")?
   metadata    Json? // section, page, is_table, etc.
   institution Institution?                // Denormalized for query performance
   domain      Domain         @default(PROTOCOL) // Denormalized for query performance

@@ -15,9 +15,9 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 // Dynamically import embedding generation to avoid top-level await issues
-async function getEmbedding(text: string): Promise<number[]> {
+async function getEmbedding(text: string, task: 'query' | 'document' = 'query'): Promise<number[]> {
   const { generateEmbedding } = await import("../packages/api/src/lib/llm-client");
-  return generateEmbedding(text);
+  return generateEmbedding(text, task);
 }
 
 interface SampleDocument {
@@ -246,7 +246,7 @@ async function seedDemo() {
       const chunkContent = doc.chunks[i];
       console.log(`    Chunk ${i + 1}/${doc.chunks.length}: generating embedding...`);
 
-      const embedding = await getEmbedding(chunkContent);
+      const embedding = await getEmbedding(chunkContent, 'document');
 
       await prisma.$executeRaw`
         INSERT INTO "DocumentChunk" ("id", "documentId", "chunkIndex", "content", "embedding", "institution")
@@ -255,7 +255,7 @@ async function seedDemo() {
           ${document.id},
           ${i},
           ${chunkContent},
-          ${embedding}::vector,
+          ${`[${embedding.join(',')}]`}::vector,
           ${doc.institution}::"Institution"
         )
       `;

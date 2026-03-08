@@ -52,7 +52,7 @@ A comprehensive, open-source clinical decision support framework for radiology d
 - Multi-institution support with institution-level filtering at retrieval time
 - Automatic document classification by folder structure and filename patterns
 - Support for PDF, DOCX, PPTX, TXT, and Markdown ingestion
-- Configurable chunking (512 tokens, 100 overlap) with OpenAI embeddings
+- Configurable chunking (512 tokens, 100 overlap) with multi-provider embeddings
 - Document tier scoring (reference, clinical, educational) with category-aware boosts
 - National guideline ingestion support
 
@@ -83,7 +83,7 @@ A comprehensive, open-source clinical decision support framework for radiology d
 | Database | PostgreSQL + pgvector |
 | Auth | Supabase Auth |
 | Real-time | Supabase Realtime |
-| AI/RAG | Multi-provider LLM (Anthropic / OpenAI / DeepSeek / Gemini / MiniMax / Kimi / Local) + OpenAI text-embedding-3-small |
+| AI/RAG | Multi-provider LLM (Anthropic / OpenAI / DeepSeek / Gemini / MiniMax / Kimi / Local) + multi-provider embeddings (OpenAI / Local via LM Studio/Ollama) with automatic provider detection |
 | PDF Parsing | pdf-parse, mammoth, pptx-parser |
 | State | Zustand (persisted stores) |
 | Validation | Zod (shared schemas between client and server) |
@@ -128,8 +128,8 @@ rad-assist/
 - Node.js 18+
 - PostgreSQL 15+ with pgvector extension (or Docker)
 - npm or pnpm
-- API keys for at least one LLM provider (Anthropic, OpenAI, etc.)
-- OpenAI API key (required for embeddings regardless of chat LLM choice)
+- At least one LLM provider: local server (LM Studio/Ollama) or cloud API key (Anthropic, OpenAI, etc.)
+- At least one embedding provider: local server (LOCAL_LLM_URL) or OpenAI API key
 
 ### 1. Clone and Install
 
@@ -154,22 +154,30 @@ Required environment variables:
 DATABASE_URL=postgresql://user:password@localhost:5432/rad_assist
 DIRECT_URL=postgresql://user:password@localhost:5432/rad_assist
 
-# Embeddings (always required)
-OPENAI_API_KEY=sk-...
+# Local LLM (default path — handles both chat and embeddings)
+# Point to LM Studio, Ollama, or any OpenAI-compatible local server.
+LOCAL_LLM_URL=http://localhost:1234/v1
 
-# LLM Providers (at least one required for chat)
-ANTHROPIC_API_KEY=sk-ant-...       # Claude (default)
+# Embedding config (optional — omit EMBEDDING_DIMENSIONS to use model's native size)
+# EMBEDDING_PROVIDER=auto          # auto | openai | local
+# EMBEDDING_MODEL=text-embedding-nomic-embed-text-v1.5   # must match your loaded model
+# EMBEDDING_DIMENSIONS=
+
+# Cloud LLM providers (optional — uncomment and add keys as needed)
+# OPENAI_API_KEY=sk-...            # OpenAI (also used for cloud embeddings)
+# ANTHROPIC_API_KEY=sk-ant-...     # Claude
 # DEEPSEEK_API_KEY=...             # DeepSeek R1
 # GEMINI_API_KEY=...               # Gemini
 # MINIMAX_API_KEY=...              # MiniMax
 # MOONSHOT_API_KEY=...             # Kimi
-# LOCAL_LLM_URL=http://localhost:1234/v1  # Local (LM Studio/Ollama)
 
 # Optional: Supabase Auth (not needed for local dev with Demo Login)
 # NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 # NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 # SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
+
+> **Local-only deployment (no cloud dependencies):** For a fully local setup with LM Studio, you need **two models loaded simultaneously** — a chat model (e.g. DeepSeek R1) **and** an embedding model (e.g. nomic-embed-text-v1.5). Set `EMBEDDING_MODEL` to match the embedding model name exactly as LM Studio reports it (e.g. `text-embedding-nomic-embed-text-v1.5`). Leave all cloud API keys commented out; the system auto-detects `LOCAL_LLM_URL` and routes both chat and embedding requests to your local server.
 
 ### 3. Set Up Database
 
@@ -181,15 +189,17 @@ docker-compose up -d
 
 Or connect to an existing PostgreSQL instance with pgvector.
 
-Then copy environment variables for Prisma and initialize the database:
+Then copy environment variables where each tool expects them and initialize the database:
 
 ```bash
-# Prisma requires env vars in the packages/db directory
-cp .env.local packages/db/.env
+cp .env.local .env              # Seed scripts read from project root
+cp .env.local packages/db/.env  # Prisma CLI reads from packages/db/
 
 npm run db:generate
 npm run db:push
 ```
+
+> Prisma CLI reads from `packages/db/.env`, seed scripts read from root `.env`, and Next.js reads from `apps/web/.env.local`. All three locations need the same database connection values.
 
 ### 4. Ingest Documents
 
@@ -206,15 +216,7 @@ npx tsx scripts/ingest-institution.ts --institution ALL
 npx tsx scripts/ingest-institution.ts --institution ALL --dry-run
 ```
 
-### 5. Start Development Server
-
-```bash
-npm run dev
-```
-
-The application will be available at `http://localhost:3000`.
-
-### 6. Seed Demo Data (Optional)
+### 5. Seed Demo Data (Optional)
 
 To populate the knowledge base with sample radiology protocols for testing:
 
@@ -224,6 +226,14 @@ npx tsx scripts/seed-demo.ts
 
 This creates sample documents covering contrast reactions, MRI safety, renal function,
 critical results, and CT protocols. Remove with `npx tsx scripts/seed-demo.ts --clean`.
+
+### 6. Start Development Server
+
+```bash
+npm run dev
+```
+
+The application will be available at `http://localhost:3000`.
 
 ---
 

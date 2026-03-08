@@ -1,10 +1,9 @@
 import { PrismaClient, Institution } from "@prisma/client";
-import OpenAI from "openai";
+import { generateEmbedding } from "../packages/api/src/lib/embedding-client";
 import * as fs from "fs";
 import * as path from "path";
 
 const prisma = new PrismaClient();
-const openai = new OpenAI();
 
 // Protocol documents to seed - add your actual protocols here
 // Each protocol should have: title, source, category, subspecialties, content, institution
@@ -98,12 +97,7 @@ async function seedProtocols() {
     // Generate embeddings and store
     for (let i = 0; i < chunks.length; i++) {
       try {
-        const embeddingResponse = await openai.embeddings.create({
-          model: "text-embedding-3-small",
-          input: chunks[i],
-        });
-
-        const embedding = embeddingResponse.data[0].embedding;
+        const embedding = await generateEmbedding(chunks[i], 'document');
 
         // Insert using raw SQL for vector type
         await prisma.$executeRawUnsafe(

@@ -33,8 +33,6 @@ const DOC_TITLE = 'IT Systems Troubleshooting Guide - institutional Radiology';
 const DOC_SOURCE = 'IT_KNOWLEDGE_BASE';
 const DOC_CATEGORY = 'GENERAL'; // Using existing category + metadata approach
 const DOC_INSTITUTION = 'SHARED';
-const EMBEDDING_MODEL = 'text-embedding-3-small';
-const EMBEDDING_DIMENSIONS = 1536;
 const REQUIRED_SECTION_ROUTES: Record<string, string> = {
   EPIC_012: 'epic_worklist',
   PACS_011: 'pacs_connectivity',
@@ -51,27 +49,9 @@ const REQUIRED_SECTION_ROUTES: Record<string, string> = {
 
 const prisma = new PrismaClient();
 
-// ── OpenAI (lazy instantiation for dry-run support) ─────────────────
+// ── Embedding ────────────────────────────────────────────────────────
 
-let openaiClient: any = null;
-
-async function getOpenAI() {
-  if (openaiClient) return openaiClient;
-  const openaiModule = await import('openai');
-  const OpenAI = (openaiModule.default ?? (openaiModule as any).OpenAI) as any;
-  openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  return openaiClient;
-}
-
-async function generateEmbedding(text: string): Promise<number[]> {
-  const openai = await getOpenAI();
-  const response = await openai.embeddings.create({
-    model: EMBEDDING_MODEL,
-    input: text,
-    dimensions: EMBEDDING_DIMENSIONS,
-  });
-  return response.data[0].embedding;
-}
+import { generateEmbedding } from '../../packages/api/src/lib/embedding-client';
 
 interface CoverageValidationResult {
   totalEntries: number;
@@ -257,7 +237,7 @@ async function main() {
     const chunk = chunks[i];
     console.log(`  [${i + 1}/${chunks.length}] ${chunk.sectionTitle}...`);
 
-    const embedding = await generateEmbedding(chunk.content);
+    const embedding = await generateEmbedding(chunk.content, 'document');
 
     // Use raw SQL for pgvector insertion (Prisma doesn't support vector natively)
     await prisma.$executeRaw`

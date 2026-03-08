@@ -1,12 +1,11 @@
 import { PrismaClient, Institution } from "@prisma/client";
-import OpenAI from "openai";
+import { generateEmbedding } from "../packages/api/src/lib/embedding-client";
 import * as fs from "fs";
 import * as path from "path";
 import pdf from "pdf-parse";
 import { INSTITUTION_CONFIG } from "@rad-assist/shared";
 
 const prisma = new PrismaClient();
-const openai = new OpenAI();
 
 // Root folders to ingest - maps to institution based on INSTITUTION_CONFIG.sourceFolder
 const ROOT_FOLDERS = ["./institution-b-policies", "./institution-a-policies"];
@@ -727,13 +726,7 @@ function forceSplitLongText(text: string, maxChars: number, overlapChars: number
   return chunks.filter((c) => c.length > 100);
 }
 
-async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await openai.embeddings.create({
-    model: "text-embedding-3-small",
-    input: text.slice(0, 8000), // Limit input size
-  });
-  return response.data[0].embedding;
-}
+// generateEmbedding imported from embedding-client
 
 // ============================================================================
 // FILE SCANNING
@@ -884,7 +877,7 @@ async function ingestFolder() {
       for (let j = 0; j < chunks.length; j++) {
         process.stdout.write(`   Embedding ${j + 1}/${chunks.length}...\r`);
 
-        const embedding = await generateEmbedding(chunks[j]);
+        const embedding = await generateEmbedding(chunks[j], 'document');
 
         await prisma.$executeRaw`
           INSERT INTO "DocumentChunk" (id, "documentId", "chunkIndex", content, embedding, metadata, institution, "createdAt")

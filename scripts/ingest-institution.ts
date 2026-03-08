@@ -18,10 +18,9 @@ import { PrismaClient } from "@prisma/client";
 import * as fs from "fs";
 import * as path from "path";
 import pdfParse from "pdf-parse";
-import OpenAI from "openai";
+import { generateEmbedding } from "../packages/api/src/lib/embedding-client";
 
 const prisma = new PrismaClient();
-const openai = new OpenAI();
 
 // Institution type (matches Prisma enum)
 type Institution = "INSTITUTION_A" | "INSTITUTION_B" | "SHARED";
@@ -428,13 +427,7 @@ function chunkText(text: string): string[] {
   return chunks;
 }
 
-async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await openai.embeddings.create({
-    model: "text-embedding-3-small",
-    input: text.substring(0, 8000), // Token limit safety
-  });
-  return response.data[0].embedding;
-}
+// generateEmbedding imported from embedding-client
 
 // ============================================
 // FILE DISCOVERY
@@ -616,7 +609,7 @@ async function ingestInstitution(
 
       for (let i = 0; i < chunksWithPages.length; i++) {
         const chunk = chunksWithPages[i];
-        const embedding = await generateEmbedding(chunk.content);
+        const embedding = await generateEmbedding(chunk.content, 'document');
 
         await prisma.$executeRaw`
           INSERT INTO "DocumentChunk" (id, "documentId", "chunkIndex", content, embedding, institution, domain, "authorityLevel", metadata, "createdAt")

@@ -5,7 +5,7 @@
  * Default model: Claude Haiku 4.5 (`claude-haiku`).
  * Provider fallback order is defined in `llm-client.ts`.
  *
- * Embeddings always use OpenAI (for vector compatibility).
+ * Embedding provider auto-detected from available providers (env vars override defaults at runtime).
  */
 
 export const RAG_CONFIG = {
@@ -14,7 +14,7 @@ export const RAG_CONFIG = {
   // The llm-client.ts now handles provider selection based on user preference.
   // ════════════════════════════════════════════════════════════════════════════
   
-  // Embeddings - Always OpenAI (compatible with existing vectors in pgvector)
+  // Embeddings - auto-detected from available providers; env vars override defaults
   EMBEDDING_MODEL: 'text-embedding-3-small',
   EMBEDDING_DIMENSIONS: 1536,
   

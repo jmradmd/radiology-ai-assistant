@@ -7,7 +7,7 @@
 ## Project Identity
 
 **Radiology AI Assistant** is a mobile-first clinical decision support app for radiology departments featuring:
-- RAG-powered protocol + knowledge assistant (multi-provider chat + OpenAI embeddings, emergency detection)
+- RAG-powered protocol + knowledge assistant (multi-provider chat + multi-provider embeddings, emergency detection)
 - PDF document ingestion with automatic categorization
 - Coordinator workflow routing with priority escalation
 - Real-time messaging with typing indicators and read receipts
@@ -56,7 +56,7 @@ rad-assist/
 | Database    | PostgreSQL + pgvector (Supabase)                   |
 | Auth        | Supabase Auth                                      |
 | Real-time   | Supabase Realtime                                  |
-| AI/RAG      | Claude Haiku (default) / Claude Sonnet/Opus / GPT / DeepSeek / Gemini / MiniMax / Kimi / Local (LM Studio/Ollama) + OpenAI embeddings |
+| AI/RAG      | Claude Haiku (default) / Claude Sonnet/Opus / GPT / DeepSeek / Gemini / MiniMax / Kimi / Local (LM Studio/Ollama) + multi-provider embeddings (OpenAI / Local via LM Studio/Ollama) with automatic provider detection |
 | PDF Parsing | pdf-parse, mammoth, pptx-parser                    |
 | Markdown    | react-markdown + remark-gfm                        |
 | Icons       | lucide-react                                       |
@@ -135,6 +135,7 @@ tRPC backend routers:
 - `src/context.ts` -- Request context with auth (prisma, user)
 - `src/lib/rag-config.ts` -- RAG configuration (thresholds, emergency keywords)
 - `src/lib/llm-client.ts` -- Unified multi-provider LLM client; cloud models use fallback chain, local requests use `LOCAL_LLM_URL` and fail explicitly on local-server errors
+- `src/lib/embedding-client.ts` -- Unified embedding provider with automatic provider detection. Auto-detection hierarchy: real `OPENAI_API_KEY` -> OpenAI, else `LOCAL_LLM_URL` -> local, overridable via `EMBEDDING_PROVIDER` env var. Uses `isRealApiKey()` to reject placeholder keys (containing "...", "your-", "your\_", or < 20 chars). For nomic-embed-text models, `applyNomicPrefix()` prepends "search\_query: " (queries) or "search\_document: " (documents). Sets `encoding_format: 'float'` for LM Studio compatibility. Exports `EmbeddingTask` type (`'query'` | `'document'`) to control prefix behavior. Callers format vectors as `[${embedding.join(',')}]` string literals for pgvector raw SQL
 - `src/lib/emergency-detection.ts` -- Clinical emergency/urgency detection
 - `src/lib/abbreviation-detector.ts` -- Medical abbreviation detection and disambiguation
 - `src/lib/medical-abbreviations.ts` -- Dictionary of 150+ medical abbreviations with meanings
@@ -217,7 +218,7 @@ The multi-institution ingestion script (`ingest-institution.ts`):
 3. Sets the `institution` field on Document and DocumentChunk
 4. Extracts text using `pdf-parse` with page-aware chunking
 5. Chunks text (512 tokens, 100 overlap)
-6. Generates embeddings via OpenAI `text-embedding-3-small`
+6. Generates embeddings via configured provider (OpenAI or local)
 7. Stores in `Document` and `DocumentChunk` tables with institution metadata
 
 **CLI Options:**
@@ -312,7 +313,7 @@ To add custom classification rules, edit `KEYWORD_RULES` in `scripts/ingest-inst
 | `RequestEscalation` | Escalation chain tracking |
 | `Notification` | PUSH, SMS, EMAIL with delivery status |
 | `Document` | RAG source docs with institution/domain/authority/sourceCollection/documentTier metadata |
-| `DocumentChunk` | Embedded chunks with `vector(1536)` + denormalized institution/domain/authority/tier fields |
+| `DocumentChunk` | Embedded chunks with `vector` + denormalized institution/domain/authority/tier fields |
 | `AuditLog` | Compliance logging |
 | `PHIDetectionLog` | PHI detection audit trail |
 
@@ -360,7 +361,7 @@ model PHIDetectionLog {
 
 ```prisma
 model DocumentChunk {
-  embedding  Unsupported("vector(1536)")?
+  embedding  Unsupported("vector")?
 }
 ```
 
@@ -449,9 +450,11 @@ DEFAULT_MODEL_ID = "claude-haiku"
 
 ```typescript
 RAG_CONFIG = {
-  // Embeddings - Always OpenAI (compatible with existing vectors)
+  // Embedding config is now managed by embedding-client.ts (packages/api/src/lib/embedding-client.ts).
+  // EMBEDDING_MODEL defaults to 'text-embedding-3-small' for OpenAI; must be set explicitly for local.
+  // EMBEDDING_DIMENSIONS defaults to undefined (model's native size).
   EMBEDDING_MODEL: 'text-embedding-3-small',
-  EMBEDDING_DIMENSIONS: 1536,
+  EMBEDDING_DIMENSIONS: undefined,
 
   // Retrieval
   MIN_CONFIDENCE_THRESHOLD: 0.50,
@@ -542,7 +545,7 @@ interface ChatResponse {
 5. **LLM Query Analysis** -- Detect topic, ambiguity, intervention risk, and clarification needs
 6. **Conversation Context** -- Retrieve prior messages and expand referential follow-ups
 7. **Abbreviation Expansion** -- Expand resolved abbreviations for better embedding recall
-8. **Generate Embedding** -- Query -> `text-embedding-3-small`
+8. **Generate Embedding** -- Query -> configured embedding provider
 9. **Vector Search** -- Domain-aware pgvector retrieval with category boost and tier scoring
 10. **Confidence + Source Filtering** -- Apply similarity thresholds before source display
 11. **Prompt Construction** -- Branch into knowledge-only, hybrid, emergency, routine, or low-confidence prompts
@@ -1216,7 +1219,13 @@ npm run package:desktop       # Package for current platform
 # Required
 DATABASE_URL=
 DIRECT_URL=
-OPENAI_API_KEY=              # Always required for embeddings
+
+# Embeddings (at least one of OPENAI_API_KEY or LOCAL_LLM_URL required)
+# All API keys are commented out by default in .env.example.
+OPENAI_API_KEY=              # Default embedding provider when a real key is set
+EMBEDDING_PROVIDER=          # auto | openai | local (default: auto)
+EMBEDDING_MODEL=             # Model name (default: text-embedding-3-small for OpenAI; must be set explicitly for local)
+EMBEDDING_DIMENSIONS=        # Optional, omit to use model's native dimensions
 
 # LLM Providers (at least one required for chat; default model is Claude Haiku)
 ANTHROPIC_API_KEY=           # Claude family
@@ -1224,7 +1233,7 @@ DEEPSEEK_API_KEY=            # DeepSeek R1
 GEMINI_API_KEY=              # Gemini
 MINIMAX_API_KEY=             # MiniMax
 MOONSHOT_API_KEY=            # Kimi
-LOCAL_LLM_URL=               # Local OpenAI-compatible endpoint (default: http://localhost:1234/v1)
+LOCAL_LLM_URL=               # Local OpenAI-compatible endpoint for chat + embeddings (default: http://localhost:1234/v1)
 
 # Optional
 NEXT_PUBLIC_SUPABASE_URL=
@@ -1302,7 +1311,7 @@ Set `DATABASE_URL` and `DIRECT_URL` to your hosted PostgreSQL URI.
 Before startup, verify these exist and are non-empty:
 - `DATABASE_URL`
 - `DIRECT_URL`
-- `OPENAI_API_KEY`
+- At least one LLM/embedding provider (`OPENAI_API_KEY` or `LOCAL_LLM_URL`)
 
 ### 3. Start and Verify
 

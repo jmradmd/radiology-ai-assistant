@@ -16,10 +16,9 @@ import { PrismaClient } from "@prisma/client";
 import * as fs from "fs";
 import * as path from "path";
 import pdfParse from "pdf-parse";
-import OpenAI from "openai";
+import { generateEmbedding } from "../packages/api/src/lib/embedding-client";
 
 const prisma = new PrismaClient();
-let openaiClient: OpenAI | null = null;
 
 const CHUNK_SIZE_WORDS = 512;
 const CHUNK_OVERLAP_WORDS = 100;
@@ -240,18 +239,7 @@ function chunkTextByWords(
   return chunks;
 }
 
-async function generateEmbedding(input: string): Promise<number[]> {
-  if (!openaiClient) {
-    openaiClient = new OpenAI();
-  }
-
-  const response = await openaiClient.embeddings.create({
-    model: "text-embedding-3-small",
-    input: input.slice(0, 32000),
-  });
-
-  return response.data[0].embedding;
-}
+// generateEmbedding imported from embedding-client
 
 async function main() {
   const args = parseArgs();
@@ -391,7 +379,7 @@ async function main() {
       });
 
       for (let i = 0; i < chunks.length; i++) {
-        const embedding = await generateEmbedding(chunks[i]);
+        const embedding = await generateEmbedding(chunks[i], 'document');
         await prisma.$executeRaw`
           INSERT INTO "DocumentChunk" (
             id,

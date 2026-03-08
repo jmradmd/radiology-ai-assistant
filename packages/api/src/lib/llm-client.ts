@@ -12,7 +12,6 @@
  *
  * Fallback chain: Selected Model → Sonnet 4.6 → GPT-5.2 → DeepSeek →
  * Gemini 3.0 → MiniMax-M2.5 → Haiku 4.5 → Kimi K2.5 → Opus 4.6
- * OpenAI is always used for embeddings (cost-effective, compatible with existing vectors).
  */
 
 import Anthropic from '@anthropic-ai/sdk';
@@ -550,34 +549,7 @@ export async function generateCompletion(params: LLMCompletionParams): Promise<L
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
-// EMBEDDINGS (Always OpenAI for consistency with existing vectors)
+// EMBEDDINGS (delegated to embedding-client.ts)
 // ════════════════════════════════════════════════════════════════════════════════
 
-const EMBEDDING_MODEL = 'text-embedding-3-small';
-
-/**
- * Generate embeddings using OpenAI (always, for consistency with existing vectors)
- */
-export async function generateEmbedding(text: string): Promise<number[]> {
-  // Truncate to model limit (8191 tokens, ~32K chars for safety)
-  const truncatedText = text.slice(0, 32000);
-
-  const client = getOpenAIClient();
-  try {
-    const response = await client.embeddings.create({
-      model: EMBEDDING_MODEL,
-      input: truncatedText,
-    });
-
-    return response.data[0].embedding;
-  } catch (error) {
-    const rawMessage = error instanceof Error ? error.message : String(error);
-    // Sanitize error message to remove potential API key fragments
-    const sanitizedMessage = rawMessage
-      .replace(/sk-[A-Za-z0-9_-]+/g, '[REDACTED_KEY]')
-      .replace(/key-[A-Za-z0-9_-]+/g, '[REDACTED_KEY]')
-      .replace(/Bearer\s+[A-Za-z0-9_.-]+/g, 'Bearer [REDACTED]');
-    console.error(`[LLM][embedding] failed message="${sanitizedMessage}"`);
-    throw new Error(`Failed to generate embedding: ${sanitizedMessage}`);
-  }
-}
+export { generateEmbedding, generateEmbeddings, getEmbeddingConfig } from './embedding-client';

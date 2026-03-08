@@ -1,9 +1,6 @@
-import OpenAI from "openai";
 import { RAG_CONFIG } from "@rad-assist/shared";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+export { generateEmbedding } from "@rad-assist/api/lib/embedding-client";
 
 export interface SearchResult {
   chunkId: string;
@@ -16,17 +13,6 @@ export interface SearchResult {
     page?: number;
     isTable?: boolean;
   };
-}
-
-/**
- * Generate embedding for a text query
- */
-export async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await openai.embeddings.create({
-    model: RAG_CONFIG.EMBEDDING_MODEL,
-    input: text,
-  });
-  return response.data[0].embedding;
 }
 
 /**

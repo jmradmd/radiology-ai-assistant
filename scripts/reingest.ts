@@ -13,14 +13,13 @@
  */
 
 import { PrismaClient, Institution } from "@prisma/client";
-import OpenAI from "openai";
+import { generateEmbedding } from "../packages/api/src/lib/embedding-client";
 import * as fs from "fs";
 import * as path from "path";
 import pdf from "pdf-parse";
 import { INSTITUTION_CONFIG } from "@rad-assist/shared";
 
 const prisma = new PrismaClient();
-const openai = new OpenAI();
 
 // Root folders to ingest with institution mapping
 const ROOT_FOLDERS = [
@@ -42,7 +41,6 @@ function detectInstitution(filePath: string): Institution {
   
   return "INSTITUTION_B"; // Default
 }
-const EMBEDDING_MODEL = "text-embedding-3-small";
 
 // ============================================================================
 // CHUNKING FUNCTIONS (FIXED)
@@ -314,21 +312,7 @@ async function extractPdfText(filePath: string): Promise<string> {
   }
 }
 
-// ============================================================================
-// EMBEDDING
-// ============================================================================
-
-async function generateEmbedding(text: string): Promise<number[]> {
-  // Truncate to ~8000 tokens (~32000 chars) for embedding model limit
-  const truncated = text.slice(0, 32000);
-
-  const response = await openai.embeddings.create({
-    model: EMBEDDING_MODEL,
-    input: truncated,
-  });
-
-  return response.data[0].embedding;
-}
+// generateEmbedding imported from embedding-client
 
 // ============================================================================
 // FILE SCANNING
@@ -466,7 +450,7 @@ async function reingest() {
       for (let j = 0; j < chunks.length; j++) {
         process.stdout.write(`   Embedding ${j + 1}/${chunks.length}...\r`);
 
-        const embedding = await generateEmbedding(chunks[j]);
+        const embedding = await generateEmbedding(chunks[j], 'document');
 
         await prisma.$executeRaw`
           INSERT INTO "DocumentChunk" (id, "documentId", "chunkIndex", content, embedding, metadata, institution, "createdAt")
