@@ -114,6 +114,10 @@ rad-assist/
 │   ├── build-name-database.ts   # Generate first/last-name DB for PHI detection
 │   ├── seed-protocols.ts        # Sample protocol seeding
 │   └── archive/                 # Legacy script backups
+├── evaluation/
+│   ├── datasets/                # Gold-standard test cases (103 cases)
+│   ├── scripts/                 # Evaluation runners (unit, pipeline, cross-model)
+│   └── results/                 # Timestamped JSON evaluation reports (gitignored)
 ├── docs/                        # Project documentation
 ├── validation/                  # Validation and test utilities
 ├── docker-compose.yml           # Local PostgreSQL + pgvector
@@ -308,6 +312,11 @@ npx cap add ios          # Add iOS platform
 npx cap copy ios         # Copy web build to iOS
 npx cap open ios         # Open in Xcode
 
+# Evaluation
+npm test                 # Tier 1: Unit tests (no setup needed)
+npm run eval             # Tier 2: Pipeline evaluation (offline, no DB)
+npm run eval:full        # Tier 2: Pipeline evaluation with retrieval (requires seeded DB)
+
 # Desktop
 npm run dev:desktop      # Start Electron dev mode
 npm run build:desktop    # Build desktop app
@@ -360,6 +369,35 @@ Documents are automatically classified into categories:
 ### LLM Model Configuration
 
 The default model is Claude Haiku. Cloud models use a fallback chain when the requested provider is unavailable. Local models (LM Studio, Ollama) fail explicitly without cloud fallback.
+
+---
+
+## Evaluation Framework
+
+Automated validation of safety modules, retrieval accuracy, and cross-model consistency.
+
+### Quick Start
+
+```bash
+npm test             # Tier 1: Unit tests (no setup needed, ~5s)
+npm run eval         # Tier 2: Pipeline eval against gold-standard dataset (offline)
+npm run eval:full    # Tier 2: Full pipeline eval with retrieval (requires seeded DB)
+```
+
+### Gold-Standard Coverage (103 cases)
+
+| Category | Cases | What it validates |
+|----------|------:|-------------------|
+| Emergency Detection | 20 | Severity classification, trigger identification |
+| PHI Detection | 20 | Sensitivity (catches PHI) and specificity (allows eponyms, clinical terms) |
+| Abbreviation | 20 | Context-dependent disambiguation of ambiguous medical abbreviations |
+| Routing | 16 | PROTOCOL / KNOWLEDGE / HYBRID query classification |
+| Response Validation | 15 | Safety rules (no first-person advice, no unqualified invasive recommendations) |
+| Retrieval | 12 | Correct protocol document retrieved for a given query |
+
+### Extending
+
+Add cases to `evaluation/datasets/gold-standard.json` or create new `.test.ts` files in the appropriate package. See [evaluation/EVALUATION.md](evaluation/EVALUATION.md) for full documentation including Tier 3 cross-model comparison and CI integration.
 
 ---
 

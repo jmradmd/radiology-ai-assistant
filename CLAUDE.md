@@ -39,6 +39,10 @@ rad-assist/
 │   ├── reingest.ts             # Legacy re-ingestion helper (still runnable)
 │   ├── seed-protocols.ts       # Basic protocol seeding
 │   └── archive/                # Backup copies of legacy scripts (.bak files)
+├── evaluation/
+│   ├── datasets/               # Gold-standard test cases (103 cases)
+│   ├── scripts/                # Evaluation runners (unit, pipeline, cross-model)
+│   └── results/                # Timestamped JSON reports (gitignored)
 ├── institution-a-policies/     # First institution policy documents
 ├── institution-b-policies/     # Second institution policy documents
 ├── teams_standard_docs/        # Departmental team standards
@@ -1360,6 +1364,59 @@ When modifying features, verify:
 - [ ] Query domain routing behaves as expected (PROTOCOL/KNOWLEDGE/HYBRID)
 - [ ] User preferences persist across sessions (localStorage)
 - [ ] Auth hydration check prevents flash of unauthenticated content
+
+---
+
+## Automated Evaluation Framework
+
+### Running Evaluations
+
+```bash
+npm test             # Tier 1: Unit tests — pure TypeScript, no setup (~5s)
+npm run eval         # Tier 2: Pipeline eval against gold-standard dataset (offline, no DB)
+npm run eval:full    # Tier 2: Full pipeline eval with retrieval (requires seeded DB)
+```
+
+Tier 3 cross-model comparison requires a running server + multiple API keys:
+```bash
+npx tsx evaluation/scripts/eval-cross-model.ts --models claude-haiku,gpt-4o
+```
+
+### Unit Test Files
+
+| File | Tests |
+|------|-------|
+| `packages/api/src/lib/emergency-detection.test.ts` | Emergency severity classification and trigger identification |
+| `packages/shared/src/phi-filter.test.ts` | PHI detection sensitivity and specificity |
+| `packages/api/src/lib/query-routing-safety.test.ts` | Emergency safety override for query routing |
+| `packages/api/src/lib/source-relevance.test.ts` | Source relevance scoring and filtering |
+| `packages/api/src/lib/concise-format.test.ts` | Concise-mode formatting normalization |
+| `packages/api/src/lib/clarification-guard.test.ts` | Clarification prompt gating and deduplication |
+| `apps/web/src/lib/chat/clarification-parser.test.ts` | Clarification response parsing |
+| `apps/web/src/lib/routing/classifier.test.ts` | Intent classification rules |
+
+Tests use `node:test` and `node:assert/strict`. The Tier 1 runner auto-discovers all `.test.ts` files.
+
+### Gold-Standard Dataset
+
+`evaluation/datasets/gold-standard.json` contains 103 cases across 6 categories:
+
+| Category | Cases | What it validates |
+|----------|------:|-------------------|
+| `emergency_detection` | 20 | Severity classification, trigger/escalator identification |
+| `phi_detection` | 20 | Sensitivity (catches real PHI) and specificity (allows eponyms, clinical terms) |
+| `abbreviation` | 20 | Context-dependent disambiguation of ambiguous medical abbreviations |
+| `routing` | 16 | PROTOCOL / KNOWLEDGE / HYBRID query classification |
+| `response_validation` | 15 | Safety rules (no first-person advice, no unqualified invasive recommendations) |
+| `retrieval` | 12 | Correct protocol document retrieved for a given query |
+
+### Adding New Tests
+
+**New gold-standard case:** Add an entry to the `cases` array in `gold-standard.json` with a unique `id` (convention: category prefix + number, e.g. `emrg-009`), a `category`, a `query`, and an `expected` object.
+
+**New unit test:** Create a `.test.ts` file next to the module using `node:test` and `node:assert/strict`. The Tier 1 runner discovers it automatically.
+
+See [evaluation/EVALUATION.md](evaluation/EVALUATION.md) for full documentation including dataset extension, institutional data, and CI integration.
 
 ---
 

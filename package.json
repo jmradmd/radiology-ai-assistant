@@ -34,7 +34,10 @@
     "ingest:folder": "npx tsx scripts/ingest-folder.ts",
     "reingest": "npx tsx scripts/reingest.ts",
     "seed:demo": "npx tsx scripts/seed-demo.ts",
-    "seed:demo:clean": "npx tsx scripts/seed-demo.ts --clean"
+    "seed:demo:clean": "npx tsx scripts/seed-demo.ts --clean",
+    "test": "npx tsx evaluation/scripts/eval-unit.ts",
+    "eval": "npx tsx evaluation/scripts/eval-pipeline.ts --skip-retrieval",
+    "eval:full": "npx tsx evaluation/scripts/eval-pipeline.ts"
   },
   "devDependencies": {
     "@types/pdf-parse": "^1.1.5",
