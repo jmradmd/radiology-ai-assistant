@@ -36,6 +36,7 @@
     "seed:demo": "npx tsx scripts/seed-demo.ts",
     "seed:demo:clean": "npx tsx scripts/seed-demo.ts --clean",
     "test": "npx tsx evaluation/scripts/eval-unit.ts",
+    "test:bench": "npx tsx --test benchmarks/harness/*.test.ts",
     "eval": "npx tsx evaluation/scripts/eval-pipeline.ts --skip-retrieval",
     "eval:full": "npx tsx evaluation/scripts/eval-pipeline.ts"
   },
