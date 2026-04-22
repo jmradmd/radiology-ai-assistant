@@ -22,3 +22,4 @@ knowledge-data/
 *.key
 *.bak
 benchmarks/results/
+!benchmarks/published/
