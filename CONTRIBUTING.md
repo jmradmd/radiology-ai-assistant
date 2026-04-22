@@ -85,6 +85,8 @@ npm install
 
 # Copy environment configuration
 cp .env.example .env.local
+cp .env.local .env
+cp .env.local packages/db/.env
 
 # Set up database
 docker-compose up -d

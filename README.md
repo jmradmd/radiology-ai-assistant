@@ -113,13 +113,13 @@ rad-assist/
 │   ├── ingest-directory.ts      # Department/service directory ingestion
 │   ├── build-name-database.ts   # Generate first/last-name DB for PHI detection
 │   ├── seed-protocols.ts        # Sample protocol seeding
+│   ├── seed-demo.ts            # Demo data seeder with sample protocols
 │   └── archive/                 # Legacy script backups
 ├── evaluation/
 │   ├── datasets/                # Gold-standard test cases (103 cases)
 │   ├── scripts/                 # Evaluation runners (unit, pipeline, cross-model)
 │   └── results/                 # Timestamped JSON evaluation reports (gitignored)
 ├── docs/                        # Project documentation
-├── validation/                  # Validation and test utilities
 ├── docker-compose.yml           # Local PostgreSQL + pgvector
 └── package.json
 ```
@@ -212,7 +212,7 @@ Place your protocol PDFs in institution-specific folders, then run ingestion:
 
 ```bash
 # Ingest documents from a specific institution folder
-npx tsx scripts/ingest-institution.ts --institution INST_A --verbose
+npx tsx scripts/ingest-institution.ts --institution INSTITUTION_A --verbose
 
 # Or ingest all configured institutions
 npx tsx scripts/ingest-institution.ts --institution ALL
@@ -333,15 +333,15 @@ Radiology AI Assistant supports multiple institution document sources with indep
 
 ```typescript
 INSTITUTION_CONFIG = {
-  INST_A: {
-    displayName: "Institution A",
-    shortName: "A",
-    sourceFolder: "Institution A Policies",
+  INSTITUTION_A: {
+    displayName: "Primary Hospital",
+    shortName: "HOSP_A",
+    sourceFolder: "institution-a-policies",
   },
-  INST_B: {
-    displayName: "Institution B",
-    shortName: "B",
-    sourceFolder: "Institution B Policies",
+  INSTITUTION_B: {
+    displayName: "Department / Subspecialty",
+    shortName: "DEPT",
+    sourceFolder: "institution-b-policies",
   },
 }
 ```

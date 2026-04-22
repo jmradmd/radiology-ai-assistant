@@ -38,6 +38,7 @@ rad-assist/
 │   ├── ingest-folder.ts        # Legacy single-folder ingestion (still runnable)
 │   ├── reingest.ts             # Legacy re-ingestion helper (still runnable)
 │   ├── seed-protocols.ts       # Basic protocol seeding
+│   ├── seed-demo.ts            # Demo data seeder with sample protocols
 │   └── archive/                # Backup copies of legacy scripts (.bak files)
 ├── evaluation/
 │   ├── datasets/               # Gold-standard test cases (103 cases)
@@ -86,14 +87,14 @@ The system supports policies from multiple institutions:
 // packages/shared/src/constants.ts
 INSTITUTION_CONFIG = {
   INSTITUTION_A: {
-    displayName: "Institution A",
-    shortName: "A",
+    displayName: "Primary Hospital",
+    shortName: "HOSP_A",
     sourceFolder: "institution-a-policies",
     colors: { primary: "#1E40AF", background: "#DBEAFE" },
   },
   INSTITUTION_B: {
-    displayName: "Institution B",
-    shortName: "B",
+    displayName: "Department / Subspecialty",
+    shortName: "DEPT",
     sourceFolder: "institution-b-policies",
     colors: { primary: "#B91C1C", background: "#FEE2E2" },
   },
@@ -213,9 +214,9 @@ npm run ingest:guidelines     # Ingest from ./Guidelines
 
 **Departmental Team Standards (`teams_standard_docs`):**
 ```bash
-npm run ingest:teams          # Ingest departmental standards
-npm run ingest:teams:clean    # Rebuild all departmental standards (DANGEROUS)
-npm run ingest:teams:dry-run  # Preview ingestion plan
+npm run ingest:teams-abdominal          # Ingest departmental standards
+npm run ingest:teams-abdominal:clean    # Rebuild all departmental standards (DANGEROUS)
+npm run ingest:teams-abdominal:dry-run  # Preview ingestion plan
 ```
 
 The multi-institution ingestion script (`ingest-institution.ts`):
