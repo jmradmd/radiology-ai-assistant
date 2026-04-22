@@ -1,0 +1,16 @@
+{
+  "name": "rad-assist-benchmarks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "validate": "npx tsx scripts/validate-setup.ts",
+    "run": "npx tsx scripts/run-benchmark.ts",
+    "judge": "npx tsx scripts/run-judge.ts",
+    "aggregate": "npx tsx scripts/aggregate-raw.ts",
+    "report": "npx tsx scripts/generate-report.ts",
+    "test": "npx tsx --test harness/*.test.ts"
+  },
+  "dependencies": {
+    "yaml": "^2.8.1"
+  }
+}
