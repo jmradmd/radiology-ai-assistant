@@ -10,20 +10,13 @@ import {
   type Institution,
 } from "@rad-assist/shared";
 import { expandAbbreviationsForRetrieval } from "../lib/abbreviation-detector";
-import { resolveAbbreviationClarificationCandidate } from "../lib/clarification-guard";
 import { formatConciseResponse, shouldApplyConciseFormatting } from "../lib/concise-format";
 import { assessEmergency, type EmergencyAssessment } from "../lib/emergency-detection";
 import { getEmergencyKnowledgeOverride, getEligibilityGate, getKnowledgeGovernanceBlock } from "../lib/knowledge-governance";
 import { getKnowledgeBoostCategory } from "../lib/knowledge-topic-detector";
 import { generateEmbedding } from "../lib/llm-client";
-import {
-  analyzeQuery,
-  assessInterventionRisk,
-  shouldAnalyzeQuery,
-  type InterventionRisk,
-  type QueryAnalysis,
-} from "../lib/query-analyzer";
-import { classifyQueryDomain, isITQuery, type QueryDomainRoute } from "../lib/query-domain-classifier";
+import { assessInterventionRisk, type InterventionRisk } from "../lib/query-analyzer";
+import { classifyQueryDomain, type QueryDomainRoute } from "../lib/query-domain-classifier";
 import {
   reconcileRouteAfterRetrieval,
   reconcileRouteForKnowledgeAvailability,
@@ -165,6 +158,12 @@ async function streamOllamaChat(params: {
           { role: "user", content: params.userMessage },
         ],
         stream: true,
+        // Disable reasoning mode for models that support it (e.g. qwen3.5,
+        // qwen3.6). Without this, Ollama streams tokens into `message.thinking`
+        // while `message.content` stays empty, which looks like an empty
+        // response to the harness and makes ttft/eval_count impossible to
+        // measure for the user-visible answer.
+        think: false,
         options: {
           temperature: params.temperature,
           num_predict: params.maxTokens,
@@ -247,6 +246,19 @@ async function streamOllamaChat(params: {
 
 function scoreSearchResult(result: SearchResult): number {
   return Number(result.similarity) * Number(result.category_boost);
+}
+
+// nomic-embed-text has a 2048-token context window. Budget ~1800 tokens
+// (~7200 chars at ~4 chars/token) for the query so we stay below the limit
+// after the "search_query: " prefix is prepended by the embedding client.
+const EMBEDDING_MAX_CHARS = 7200;
+
+function truncateForEmbedding(text: string): string {
+  if (text.length <= EMBEDDING_MAX_CHARS) return text;
+  console.warn(
+    `[benchmark] Embedding input length ${text.length} chars exceeds context budget of ${EMBEDDING_MAX_CHARS}; truncating.`,
+  );
+  return text.slice(0, EMBEDDING_MAX_CHARS);
 }
 
 function buildSystemPrompt(params: {
@@ -413,7 +425,7 @@ export const benchmarkRouter = router({
   benchmarkStream: publicProcedure
     .input(
       z.object({
-        query: z.string().min(1).max(8000),
+        query: z.string().min(1).max(50000),
         ollamaModel: z.string().regex(/^[a-z0-9][a-z0-9:._/-]{0,80}$/i),
         institution: institutionSchema.optional(),
         outputStyle: outputStyleSchema.optional(),
@@ -457,9 +469,45 @@ export const benchmarkRouter = router({
 
       await measure("phi_gate", () => {
         const phiResult = detectPotentialPHI(input.query);
-        if (phiResult.isBlocked) {
+        if (!phiResult.isBlocked) return;
+        // The shared PHI filter produces confidence-scored detection spans.
+        // Low-confidence NAME-only matches trigger on radiology device names
+        // ("Siemens Avanto", "Medtronic Strata"), clinical scoring tools
+        // ("Modified Wells"), and conversational bigrams ("says she"). Those
+        // are false positives in our synthetic benchmark corpus. Block only
+        // on high-confidence signals (hard identifiers or ≥0.95 NAME matches)
+        // — which matches the behavior for deliberate mustPhiBlock queries
+        // like bench-adversarial-003 ("John Doe MRN 12345678"). This gate
+        // applies to the benchmark endpoint only; the production RAG router
+        // still uses the strict shared PHI filter.
+        const HARD_IDENTIFIER_TYPES = new Set([
+          "MRN",
+          "SSN",
+          "DATE",
+          "PHONE",
+          "FAX",
+          "EMAIL",
+          "HEALTH_PLAN_ID",
+          "ACCOUNT_NUMBER",
+          "LICENSE_NUMBER",
+          "VEHICLE_ID",
+          "DEVICE_ID",
+          "URL",
+          "IP_ADDRESS",
+          "BIOMETRIC",
+          "OTHER_UNIQUE_ID",
+        ]);
+        const hasHighConfidenceBlock = phiResult.detectionSpans.some(
+          (span) => HARD_IDENTIFIER_TYPES.has(span.type) || span.confidence >= 0.95,
+        );
+        if (hasHighConfidenceBlock) {
           throw new TRPCError({ code: "BAD_REQUEST", message: phiResult.summary });
         }
+        console.warn(
+          `[benchmark] PHI filter fired on low-confidence name spans (max conf ${Math.max(
+            ...phiResult.detectionSpans.map((span) => span.confidence),
+          ).toFixed(2)}); proceeding because no hard identifiers were detected.`,
+        );
       });
 
       const conversationState = buildConversationContext(input.query, input.conversationHistory);
@@ -505,47 +553,15 @@ export const benchmarkRouter = router({
         };
       });
 
-      let queryAnalysis: QueryAnalysis | null = null;
       let effectiveCategory: string | undefined;
-      let interventionRisk = assessInterventionRisk(input.query, conversationState.conversationContext);
-      const isClarificationResponse = /i meant|i mean|by .+ i meant|referring to|yes|no.*actually/i.test(input.query);
-      const isITMode = isITQuery(input.query);
-      if (domainState.shouldSearchProtocol && !isClarificationResponse && shouldAnalyzeQuery(input.query)) {
-        queryAnalysis = await analyzeQuery(input.query, {
-          conversationContext: conversationState.conversationContext,
-          priorUserMessage: input.conversationHistory?.filter((message) => message.role === "user").at(-1)?.content,
-          priorAssistantMessage: input.conversationHistory?.filter((message) => message.role === "assistant").at(-1)?.content,
-        });
-        interventionRisk = queryAnalysis.interventionRisk;
-        if (queryAnalysis.detectedTopic) {
-          effectiveCategory = queryAnalysis.detectedTopic.category;
-        }
-        if (queryAnalysis.needsClarification && queryAnalysis.ambiguousTerms.length > 0) {
-          const clarificationCandidate = resolveAbbreviationClarificationCandidate(queryAnalysis.ambiguousTerms[0]);
-          if (clarificationCandidate) {
-            return {
-              prompt: "",
-              responseText: `I noticed you used "${clarificationCandidate.abbreviation}" which can mean several things:\n\n${clarificationCandidate.meanings
-                .map((meaning, index) => `${index + 1}. ${meaning}`)
-                .join("\n")}\n\nWhich meaning did you intend?`,
-              streamId: `bench-${Date.now()}`,
-              sources: [],
-              timings: {
-                ttft_ms: null,
-                total_time_ms: null,
-                prompt_eval_duration_ns: null,
-                eval_duration_ns: null,
-                eval_count: null,
-                tokens_per_second: null,
-              },
-              stageTimingsMs,
-              validation: null,
-              emergencyDetected: false,
-              routeUsed: domainState.effectiveQueryRoute,
-            };
-          }
-        }
-      } else if (domainState.shouldSearchProtocol) {
+      const interventionRisk = assessInterventionRisk(input.query, conversationState.conversationContext);
+
+      // The benchmark endpoint deliberately skips the LLM-backed analyzeQuery()
+      // path. analyzeQuery() calls generateCompletion(), which uses the cloud
+      // provider fallback chain — forcing cloud API keys onto an endpoint whose
+      // sole purpose is evaluating local Ollama models. Use rule-based topic
+      // detection instead; the results feed the same category-boost hook.
+      if (domainState.shouldSearchProtocol) {
         const topicAnalysis = analyzeTopics(input.query);
         const boostCategory = getBoostCategory(topicAnalysis);
         if (boostCategory) effectiveCategory = boostCategory;
@@ -557,9 +573,10 @@ export const benchmarkRouter = router({
       }
 
       const queryForEmbedding = await measure("embedding", async () => {
-        const baseQuery = queryAnalysis?.expandedQuery && !isITMode ? queryAnalysis.expandedQuery : conversationState.effectiveQuery;
+        const baseQuery = conversationState.effectiveQuery;
         const { expandedText, expansions } = expandAbbreviationsForRetrieval(baseQuery, effectiveCategory);
-        return Object.keys(expansions).length > 0 ? expandedText : baseQuery;
+        const selected = Object.keys(expansions).length > 0 ? expandedText : baseQuery;
+        return truncateForEmbedding(selected);
       });
 
       const queryEmbedding = await generateEmbedding(queryForEmbedding);
