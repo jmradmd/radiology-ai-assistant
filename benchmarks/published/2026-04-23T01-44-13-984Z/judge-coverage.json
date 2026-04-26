@@ -1,9 +1,0 @@
-{
-  "run_id": "2026-04-23T01-44-13-984Z",
-  "total_records": 1863,
-  "from_llm": 1856,
-  "from_rule": 7,
-  "llm_fraction": 0.9962426194310252,
-  "batches_loaded": 38,
-  "llm_rows_loaded": 1863
-}
