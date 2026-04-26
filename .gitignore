@@ -21,3 +21,6 @@ knowledge-data/
 *.pem
 *.key
 *.bak
+benchmarks/results/
+!benchmarks/published/
+.env.local

@@ -1,11 +1,25 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Sparkles, Brain, Zap, Check, Cpu, Monitor } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LLM_MODELS, type LLMModelConfig } from "@rad-assist/shared";
 import { usePreferencesStore, type ModelId } from "@/stores/preferences";
+import { trpc } from "@/lib/trpc/client";
+
+function buildLocalOption(modelId: string): LLMModelConfig {
+  return {
+    id: modelId,
+    name: modelId,
+    provider: "local",
+    modelId,
+    description: "Local model",
+    contextWindow: 32000,
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+  };
+}
 
 // Icon mapping for each provider
 const PROVIDER_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -69,7 +83,33 @@ export function ModelSelector({ disabled = false }: ModelSelectorProps) {
   const [dropdownMaxHeight, setDropdownMaxHeight] = useState<number | null>(null);
   const { selectedModelId, setSelectedModelId } = usePreferencesStore();
 
-  const selectedModel = LLM_MODELS.find((m) => m.id === selectedModelId) || LLM_MODELS[0];
+  // Same query options as ConfigBanner so TanStack Query dedupes by query key.
+  // No second polling loop is started — both observers share the cache entry.
+  const healthCheck = trpc.system.healthCheck.useQuery(undefined, {
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    retry: 1,
+  });
+
+  const { localOptions, cloudOptions, displayModels } = useMemo(() => {
+    const discovered = healthCheck.data?.localModels?.chatModels ?? [];
+    const cloud = LLM_MODELS.filter((m) => m.provider !== "local");
+    const local: LLMModelConfig[] = discovered.length > 0
+      ? discovered.map(buildLocalOption)
+      : LLM_MODELS.filter((m) => m.provider === "local");
+    return {
+      localOptions: local,
+      cloudOptions: cloud,
+      displayModels: [...local, ...cloud],
+    };
+  }, [healthCheck.data]);
+
+  const selectedModel: LLMModelConfig =
+    displayModels.find((m) => m.id === selectedModelId) ??
+    LLM_MODELS.find((m) => m.id === selectedModelId) ??
+    (selectedModelId && selectedModelId.length > 0
+      ? buildLocalOption(selectedModelId)
+      : LLM_MODELS.find((m) => m.isDefault) ?? LLM_MODELS[0]);
   const Icon = PROVIDER_ICONS[selectedModel.provider] || Sparkles;
   const colors = PROVIDER_COLORS[selectedModel.provider] || PROVIDER_COLORS.openai;
 
@@ -84,7 +124,7 @@ export function ModelSelector({ disabled = false }: ModelSelectorProps) {
     const viewportWidth = window.innerWidth;
 
     const estimatedDropdownHeight = Math.min(
-      LLM_MODELS.length * 76 + 80,
+      displayModels.length * 76 + 80,
       Math.floor(viewportHeight * 0.75)
     );
     const spaceBelow = viewportHeight - rect.bottom - viewportPadding - gap;
@@ -106,7 +146,7 @@ export function ModelSelector({ disabled = false }: ModelSelectorProps) {
 
     setDropdownPos({ top, left });
     setDropdownMaxHeight(maxHeight);
-  }, []);
+  }, [displayModels.length]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -159,6 +199,62 @@ export function ModelSelector({ disabled = false }: ModelSelectorProps) {
     setIsOpen(!isOpen);
   };
 
+  const renderModelButton = (model: LLMModelConfig) => {
+    const ModelIcon = PROVIDER_ICONS[model.provider] || Sparkles;
+    const modelColors = PROVIDER_COLORS[model.provider] || PROVIDER_COLORS.openai;
+    const isSelected = model.id === selectedModelId;
+
+    return (
+      <button
+        key={model.id}
+        onClick={() => handleSelect(model)}
+        className={cn(
+          "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-2xl transition-colors text-left mb-0.5",
+          isSelected
+            ? cn(modelColors.bg, "ring-1 ring-inset", modelColors.border)
+            : "hover:bg-slate-50 dark:hover:bg-slate-700/50"
+        )}
+      >
+        <div
+          className={cn(
+            "w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0",
+            modelColors.bg
+          )}
+        >
+          <ModelIcon className={cn("w-3.5 h-3.5", modelColors.text)} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span
+              className={cn(
+                "text-[13px] font-medium leading-tight",
+                isSelected
+                  ? modelColors.text
+                  : "text-slate-700 dark:text-slate-200"
+              )}
+            >
+              {model.name}
+            </span>
+            {model.isDefault && (
+              <span className="px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-full">
+                Default
+              </span>
+            )}
+            {isSelected && (
+              <Check className={cn("w-3.5 h-3.5 ml-auto flex-shrink-0", modelColors.text)} />
+            )}
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5 truncate">
+            {model.description} · {(model.contextWindow / 1000).toFixed(0)}K
+          </p>
+        </div>
+      </button>
+    );
+  };
+
+  const sectionHeaderClass =
+    "text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider";
+
   // Render the dropdown via portal so it escapes any overflow:hidden ancestors
   const dropdown = isOpen && dropdownPos
     ? createPortal(
@@ -184,58 +280,22 @@ export function ModelSelector({ disabled = false }: ModelSelectorProps) {
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 pb-2"
             style={{ WebkitOverflowScrolling: "touch" }}
           >
-            {LLM_MODELS.map((model) => {
-              const ModelIcon = PROVIDER_ICONS[model.provider] || Sparkles;
-              const modelColors = PROVIDER_COLORS[model.provider] || PROVIDER_COLORS.openai;
-              const isSelected = model.id === selectedModelId;
-
-              return (
-                <button
-                  key={model.id}
-                  onClick={() => handleSelect(model)}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-2xl transition-colors text-left mb-0.5",
-                    isSelected
-                      ? cn(modelColors.bg, "ring-1 ring-inset", modelColors.border)
-                      : "hover:bg-slate-50 dark:hover:bg-slate-700/50"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0",
-                      modelColors.bg
-                    )}
-                  >
-                    <ModelIcon className={cn("w-3.5 h-3.5", modelColors.text)} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={cn(
-                          "text-[13px] font-medium leading-tight",
-                          isSelected
-                            ? modelColors.text
-                            : "text-slate-700 dark:text-slate-200"
-                        )}
-                      >
-                        {model.name}
-                      </span>
-                      {model.isDefault && (
-                        <span className="px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-full">
-                          Default
-                        </span>
-                      )}
-                      {isSelected && (
-                        <Check className={cn("w-3.5 h-3.5 ml-auto flex-shrink-0", modelColors.text)} />
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5 truncate">
-                      {model.description} · {(model.contextWindow / 1000).toFixed(0)}K
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
+            {localOptions.length > 0 && (
+              <>
+                <div className="px-2 pt-1 pb-0.5">
+                  <span className={sectionHeaderClass}>Local Models</span>
+                </div>
+                {localOptions.map(renderModelButton)}
+              </>
+            )}
+            {cloudOptions.length > 0 && (
+              <>
+                <div className={cn("px-2 pb-0.5", localOptions.length > 0 ? "pt-2" : "pt-1")}>
+                  <span className={sectionHeaderClass}>Cloud Models</span>
+                </div>
+                {cloudOptions.map(renderModelButton)}
+              </>
+            )}
           </div>
 
           {/* Footer */}

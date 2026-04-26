@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-label="Mean TTFT, mean total response time, and p95 total time per model (warm runs)." font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"><title>Response Latency by Model</title><desc>Mean TTFT, mean total response time, and p95 total time per model (warm runs).</desc><style>
+      :root {
+        --bg: #FFFFFF;
+        --fg: #111827;
+        --fg2: #4B5563;
+        --subtitle: #6B7280;
+        --axis: #6B7280;
+        --grid: #F3F4F6;
+        --legend-border: #E5E7EB;
+        --gate: #B91C1C;
+        --zone-fill: #D1FAE5;
+        --zone-fill-opacity: 0.5;
+        --zone-text: #166534;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0D1117;
+          --fg: #F3F4F6;
+          --fg2: #9CA3AF;
+          --subtitle: #9CA3AF;
+          --axis: #9CA3AF;
+          --grid: #30363D;
+          --legend-border: #374151;
+          --gate: #F87171;
+          --zone-fill: #14532D;
+          --zone-fill-opacity: 0.45;
+          --zone-text: #86EFAC;
+        }
+      }
+      .chart-bg { fill: var(--bg); }
+      .chart-title { fill: var(--fg); font-size: 22px; font-weight: 700; }
+      .chart-subtitle { fill: var(--subtitle); font-size: 14px; font-weight: 400; }
+      .chart-axis-title { fill: var(--fg); font-size: 14px; font-weight: 600; }
+      .chart-tick { fill: var(--fg2); font-size: 12px; font-weight: 400; }
+      .chart-value-label { fill: var(--fg); font-size: 11px; font-weight: 600; }
+      .chart-bar-value-label { fill: #111827; font-size: 11px; font-weight: 600; }
+      .chart-point-label { fill: var(--fg); font-size: 12px; font-weight: 500; }
+      .chart-legend-label { fill: var(--fg2); font-size: 13px; font-weight: 500; }
+      .chart-note { fill: var(--subtitle); font-size: 11px; font-weight: 400; }
+      .chart-value-pill { fill: #FFFFFF; }
+      .chart-legend-box { fill: #FFFFFF; stroke: #E5E7EB; stroke-width: 1; }
+      .chart-zero-baseline { stroke: #D1D5DB; stroke-width: 1.5; }
+      .chart-gridline { stroke: var(--grid); stroke-width: 1; }
+      .chart-axis { stroke: var(--axis); stroke-width: 1; }
+      .chart-gate { stroke: var(--gate); stroke-width: 1.5; stroke-dasharray: 6,4; }
+      .chart-gate-label { fill: var(--gate); font-size: 11px; font-weight: 600; }
+      .chart-zone { fill: var(--zone-fill); fill-opacity: var(--zone-fill-opacity); }
+      .chart-zone-label { fill: var(--zone-text); font-size: 12px; font-weight: 600; }
+      .chart-baseline-bar { fill: none; stroke-width: 2; stroke-dasharray: 4,3; }
+      .chart-cell-label { font-size: 12px; font-weight: 600; }
+</style><rect class="chart-bg" width="1200" height="700"/><text class="chart-title" x="100" y="50">Response Latency by Model</text><text class="chart-subtitle" x="100" y="74">Bars show mean TTFT (light) and mean total time (saturated) per model. Marker = warm-run p95 total. Lower is faster.</text><line class="chart-gridline" x1="130" x2="1110" y1="580.0" y2="580.0"/><text class="chart-tick" x="120" y="584.0" text-anchor="end">0.0s</text><line class="chart-gridline" x1="130" x2="1110" y1="462.5" y2="462.5"/><text class="chart-tick" x="120" y="466.5" text-anchor="end">5.2s</text><line class="chart-gridline" x1="130" x2="1110" y1="345.0" y2="345.0"/><text class="chart-tick" x="120" y="349.0" text-anchor="end">10.5s</text><line class="chart-gridline" x1="130" x2="1110" y1="227.5" y2="227.5"/><text class="chart-tick" x="120" y="231.5" text-anchor="end">15.7s</text><line class="chart-gridline" x1="130" x2="1110" y1="110.0" y2="110.0"/><text class="chart-tick" x="120" y="114.0" text-anchor="end">21.0s</text><line class="chart-axis" x1="130" x2="1110" y1="580" y2="580"/><line class="chart-axis" x1="130" x2="130" y1="110" y2="580"/><text class="chart-axis-title" x="36" y="345" text-anchor="middle" transform="rotate(-90 36 345)">seconds (warm run)</text><rect x="206.5" y="525.3" width="44.0" height="54.7" fill="#E45756" fill-opacity="0.45"/><text class="chart-tick" x="228.5" y="519.3" text-anchor="middle">2.44s</text><rect x="254.5" y="488.7" width="44.0" height="91.3" fill="#E45756" fill-opacity="0.92"/><text class="chart-tick" x="276.5" y="482.7" text-anchor="middle">4.08s</text><line x1="206.5" x2="298.5" y1="333.5" y2="333.5" stroke="#111827" stroke-width="2" stroke-dasharray="3,2"/><text class="chart-tick" x="302.5" y="337.5" text-anchor="start" fill="#111827" font-weight="600">p95 11.0s</text><text class="chart-tick" x="252.5" y="602.0" text-anchor="middle">gemma4:26b</text><rect x="451.5" y="467.0" width="44.0" height="113.0" fill="#4C78A8" fill-opacity="0.45"/><text class="chart-tick" x="473.5" y="461.0" text-anchor="middle">5.05s</text><rect x="499.5" y="379.7" width="44.0" height="200.3" fill="#4C78A8" fill-opacity="0.92"/><text class="chart-tick" x="521.5" y="373.7" text-anchor="middle">8.94s</text><line x1="451.5" x2="543.5" y1="152.7" y2="152.7" stroke="#111827" stroke-width="2" stroke-dasharray="3,2"/><text class="chart-tick" x="547.5" y="156.7" text-anchor="start" fill="#111827" font-weight="600">p95 19.1s</text><text class="chart-tick" x="497.5" y="602.0" text-anchor="middle">qwen3.5:9b</text><rect x="696.5" y="512.7" width="44.0" height="67.3" fill="#72B7B2" fill-opacity="0.45"/><text class="chart-tick" x="718.5" y="506.7" text-anchor="middle">3.00s</text><rect x="744.5" y="440.3" width="44.0" height="139.7" fill="#72B7B2" fill-opacity="0.92"/><text class="chart-tick" x="766.5" y="434.3" text-anchor="middle">6.23s</text><line x1="696.5" x2="788.5" y1="237.4" y2="237.4" stroke="#111827" stroke-width="2" stroke-dasharray="3,2"/><text class="chart-tick" x="792.5" y="241.4" text-anchor="start" fill="#111827" font-weight="600">p95 15.3s</text><text class="chart-tick" x="742.5" y="602.0" text-anchor="middle">qwen3.5:4b</text><rect x="941.5" y="506.0" width="44.0" height="74.0" fill="#F58518" fill-opacity="0.45"/><text class="chart-tick" x="963.5" y="500.0" text-anchor="middle">3.30s</text><rect x="989.5" y="432.4" width="44.0" height="147.6" fill="#F58518" fill-opacity="0.92"/><text class="chart-tick" x="1011.5" y="426.4" text-anchor="middle">6.59s</text><line x1="941.5" x2="1033.5" y1="205.6" y2="205.6" stroke="#111827" stroke-width="2" stroke-dasharray="3,2"/><text class="chart-tick" x="1037.5" y="209.6" text-anchor="start" fill="#111827" font-weight="600">p95 16.7s</text><text class="chart-tick" x="987.5" y="602.0" text-anchor="middle">qwen3.6:35b-a3b</text><rect class="chart-legend-box" x="866" y="76" width="240" height="78" rx="6"/><rect x="880" y="88" width="20" height="14" fill="#4B5563" fill-opacity="0.45"/><text class="chart-legend-label" x="908" y="100">mean TTFT (s)</text><rect x="880" y="108" width="20" height="14" fill="#4B5563" fill-opacity="0.92"/><text class="chart-legend-label" x="908" y="120">mean total time (s)</text><line x1="880" x2="900" y1="136.0" y2="136.0" stroke="#111827" stroke-width="2" stroke-dasharray="3,2"/><text class="chart-legend-label" x="908" y="140">p95 total time</text></svg>

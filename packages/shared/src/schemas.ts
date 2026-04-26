@@ -126,16 +126,24 @@ export const messageTypeSchema = z.enum([
 // LLM MODEL SCHEMAS
 // ════════════════════════════════════════════════════════════════════════════════
 
-export const llmModelIdSchema = z.enum([
-  "claude-opus",
-  "claude-sonnet",
-  "claude-haiku",
-  "gpt-5.2",
-  "minimax-m2.5",
-  "gemini-3.0",
-  "deepseek-r1",
-  "kimi-k2.5",
-  "local",
+// Static cloud model IDs are kept as a strict enum so typos in known model
+// names still get rejected. The string branch exists to admit
+// dynamically-discovered local model names (e.g., the result of a /v1/models
+// query against a local server). Server-side resolution still verifies that
+// any string-branch value resolves to a real local model.
+export const llmModelIdSchema = z.union([
+  z.enum([
+    "claude-opus",
+    "claude-sonnet",
+    "claude-haiku",
+    "gpt-5.2",
+    "minimax-m2.5",
+    "gemini-3.0",
+    "deepseek-r1",
+    "kimi-k2.5",
+    "local",
+  ]),
+  z.string().min(1).max(100),
 ]);
 
 export const llmProviderSchema = z.enum([

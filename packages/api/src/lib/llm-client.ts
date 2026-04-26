@@ -16,7 +16,14 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
-import { getModelConfig, getDefaultModel, type LLMProvider } from '@rad-assist/shared';
+import {
+  getModelConfig,
+  getDefaultModel,
+  buildSyntheticLocalModelConfig,
+  type LLMModelConfig,
+  type LLMProvider,
+} from '@rad-assist/shared';
+import { discoverLocalModels } from './provider-health';
 
 // ════════════════════════════════════════════════════════════════════════════════
 // CLIENT INITIALIZATION (Lazy to avoid crash on missing env vars)
@@ -469,22 +476,92 @@ async function completeLocal(
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
+// MODEL RESOLUTION (static + dynamic local discovery)
+// ════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Resolve a model selection (which may be a static id, the "local" alias, or a
+ * dynamically-discovered local model name) into a concrete LLMModelConfig.
+ *
+ * - Static cloud configs are returned unchanged.
+ * - The "local" alias substitutes the first chat model reported by the local
+ *   server. If the local server is unreachable or has no chat model loaded,
+ *   throws a clear error rather than silently falling back to cloud.
+ * - An unknown id resolves to a synthetic local config when the local server
+ *   reports it among its chatModels. Otherwise throws.
+ */
+export async function resolveModelConfig(
+  modelId: string | undefined,
+): Promise<LLMModelConfig> {
+  if (!modelId) return getDefaultModel();
+
+  const staticConfig = getModelConfig(modelId);
+
+  // Cloud (or any non-local) static configs pass through.
+  if (staticConfig && staticConfig.provider !== "local") {
+    return staticConfig;
+  }
+
+  // Either modelId === "local" (legacy alias) or a static config with
+  // provider="local". Both must resolve to a real chat model name via discovery.
+  if (modelId === "local" || staticConfig?.provider === "local") {
+    const baseUrl = process.env.LOCAL_LLM_URL;
+    if (!baseUrl || baseUrl.trim().length === 0) {
+      throw new Error(
+        "Local model selected but LOCAL_LLM_URL is not configured. Set LOCAL_LLM_URL or choose a cloud model.",
+      );
+    }
+    let discovery;
+    try {
+      discovery = await discoverLocalModels(baseUrl);
+    } catch {
+      throw new Error(
+        "No local models found — start your local server and load a model.",
+      );
+    }
+    if (discovery.chatModels.length === 0) {
+      throw new Error(
+        "No local models found — start your local server and load a model.",
+      );
+    }
+    return buildSyntheticLocalModelConfig(discovery.chatModels[0], baseUrl);
+  }
+
+  // No static match. Try treating it as a dynamic local model name.
+  const baseUrl = process.env.LOCAL_LLM_URL;
+  if (baseUrl && baseUrl.trim().length > 0) {
+    try {
+      const discovery = await discoverLocalModels(baseUrl);
+      if (discovery.chatModels.includes(modelId)) {
+        return buildSyntheticLocalModelConfig(modelId, baseUrl);
+      }
+    } catch {
+      // Fall through to the unknown-id error below.
+    }
+  }
+
+  throw new Error(
+    `Unknown model ID "${modelId}". Select a known model or load this model on your local server.`,
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
 // MAIN COMPLETION FUNCTION WITH FALLBACK CHAIN
 // ════════════════════════════════════════════════════════════════════════════════
 
 /**
  * Generate a chat completion with automatic fallback chain.
- * 
+ *
  * Fallback order: Selected Model → Sonnet 4.6 → GPT-5.2 → DeepSeek R1 →
  * Gemini 3.0 → MiniMax-M2.5 → Haiku 4.5 → Kimi K2.5 → Opus 4.6
- * 
+ *
  * @param params - Completion parameters including optional modelId
  * @returns Completion result with provider info
  */
 export async function generateCompletion(params: LLMCompletionParams): Promise<LLMCompletionResult> {
   const requestedModelId = params.modelId || getDefaultModel().id;
-  const modelConfig = getModelConfig(requestedModelId) || getDefaultModel();
-  
+  const modelConfig = await resolveModelConfig(requestedModelId);
+
   console.log(`[LLM] Requested model: ${modelConfig.name} (${modelConfig.provider}/${modelConfig.modelId})`);
 
   // Try the requested provider first

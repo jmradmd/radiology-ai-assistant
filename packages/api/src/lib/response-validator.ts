@@ -205,3 +205,52 @@ export function validateResponse(response: string, context: ValidationContext): 
     requiresRegeneration,
   };
 }
+
+// ════════════════════════════════════════════════════════════════════════════════
+// CITATION VALIDATION (local-model source-card prompting)
+// ════════════════════════════════════════════════════════════════════════════════
+
+export interface CitationValidationResult {
+  valid: boolean;
+  invalidCitations: string[];
+  missingCitations: boolean;
+  citationsFound: string[];
+}
+
+const CITATION_PATTERN = /\[S(\d+)\]/g;
+const REFUSAL_MARKERS = [
+  "I do not find this in the provided sources",
+  "I cannot answer that from the provided sources",
+  "No source card addresses",
+  "No source card directly addresses",
+];
+
+export function validateCitations(
+  response: string,
+  allowedHandles: string[]
+): CitationValidationResult {
+  const matches = [...response.matchAll(CITATION_PATTERN)].map((m) => m[0]);
+  const citationsFound = [...new Set(matches)];
+
+  const allowedSet = new Set(allowedHandles.map((h) => `[${h}]`));
+  const invalidCitations = citationsFound.filter((c) => !allowedSet.has(c));
+
+  // Extract the Answer section (between "Answer:" and next slot header or end).
+  const answerSection = response.match(
+    /Answer:\s*\n?([\s\S]*?)(?=\n\s*(?:Evidence|Limits)\s*:|$)/i
+  );
+  const answerBody = answerSection ? answerSection[1].trim() : "";
+  const hasAnswerContent = answerBody.length > 0;
+  const hasRefusal = REFUSAL_MARKERS.some((marker) =>
+    response.toLowerCase().includes(marker.toLowerCase())
+  );
+
+  const missingCitations = hasAnswerContent && !hasRefusal && citationsFound.length === 0;
+
+  return {
+    valid: invalidCitations.length === 0 && !missingCitations,
+    invalidCitations,
+    missingCitations,
+    citationsFound,
+  };
+}

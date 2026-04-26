@@ -11,10 +11,10 @@ import { join, resolve } from "path";
 import { Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure, adminProcedure } from "../trpc";
-import { ragQuerySchema, subspecialtySchema, institutionSchema, llmModelIdSchema, outputStyleSchema, getModelConfig, getDefaultModel, type Institution, type SourceDomain } from "@rad-assist/shared";
+import { ragQuerySchema, subspecialtySchema, institutionSchema, llmModelIdSchema, outputStyleSchema, getDefaultModel, type Institution, type SourceDomain } from "@rad-assist/shared";
 import { detectPotentialPHI, PHIDetectedError, prepareAuditData, validateNoPHI, isOverridableBlock } from "@rad-assist/shared";
 import { RAG_CONFIG } from "../lib/rag-config";
-import { generateCompletion, generateEmbedding } from "../lib/llm-client";
+import { generateCompletion, generateEmbedding, resolveModelConfig } from "../lib/llm-client";
 import { assessEmergency, type EmergencyAssessment } from "../lib/emergency-detection";
 
 function loadAssistantSystemPrompt(): { prompt: string; sourcePath: string | null } {
@@ -82,7 +82,7 @@ import {
   resolveEffectiveQueryRoute,
 } from "../lib/query-routing-safety";
 import { getKnowledgeGovernanceBlock, getEligibilityGate, getEmergencyKnowledgeOverride } from "../lib/knowledge-governance";
-import { validateResponse } from "../lib/response-validator";
+import { validateResponse, validateCitations } from "../lib/response-validator";
 import { filterResultsByDisplayRelevance } from "../lib/source-relevance";
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -134,6 +134,14 @@ export interface ChatResponse {
   needsTopicClarification?: boolean;
   suggestedTopics?: Array<{ id: string; label: string; category: string; confidence: number }>;
   detectedTopic?: { id: string; label: string; category: string };
+  // Local-model source-card mapping — forward-compatible for [S#] UI linking.
+  // Populated only when the resolved provider is "local".
+  sourceCardMap?: Array<{
+    handle: string;
+    title: string;
+    institution?: Institution;
+    domain?: SourceDomain;
+  }>;
   // Retrieval debug info
   retrievalDebug?: {
     effectiveQuery: string;
@@ -316,6 +324,279 @@ CONTEXT VERIFICATION: If the patient's relevant history (risk factors, comorbidi
 EVIDENCE CALIBRATION: Invasive recommendations require meeting COMMITMENT TRIGGERS (Section 5.3): classic appearance, classification criteria met, interval growth demonstrated, or narrow differential with shared management. If no commitment trigger is met, use hedged recommendation language per the verb hierarchy.
 VERB TIER: Invasive recommendations should use "is recommended" ONLY when commitment triggers are clearly met. Otherwise use "consider" or "can be obtained, as clinically warranted" with explicit reasoning.
 NEVER use first-person language for invasive recommendations ("I'd favor", "I think", "I would recommend"). Use the verb hierarchy.${decisionBlock}`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// LOCAL-MODEL SOURCE-CARD PROMPTING
+// ════════════════════════════════════════════════════════════════════════════════
+//
+// Local 9B-26B models cannot reliably cite sources from free-text titles in
+// "[SOURCE n | DOMAIN: \"Title\"]" form. They fabricate or omit citations.
+// For provider === "local" we repackage retrieved chunks as structured
+// source cards with stable handles [S1], [S2], ... and give the model a
+// short template-driven prompt with few-shot examples. A post-generation
+// citation validator rejects any citation handle not in the allowed set.
+// The cloud prompt path is untouched.
+
+export interface LocalSourceCardInput {
+  content: string;
+  document_title: string;
+  document_category: string;
+  document_institution: string | null;
+  document_domain: string;
+  document_authority_level: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export function formatSourceCards(sources: LocalSourceCardInput[]): string {
+  if (sources.length === 0) {
+    return "(No retrieved source excerpts passed relevance gating for this query. Use EXAMPLE 2 behavior below and refuse.)";
+  }
+
+  return sources
+    .map((source, index) => {
+      const handle = `S${index + 1}`;
+      const institution = source.document_institution || "SHARED";
+      const authority = (source.document_authority_level || "INSTITUTIONAL").toLowerCase();
+      const domain = (source.document_domain || "PROTOCOL").toLowerCase();
+      const title = source.document_title || "Untitled";
+      const category = source.document_category || "GENERAL";
+
+      const chunkMeta = source.metadata as { pageStart?: number; pageEnd?: number } | null;
+      const pageInfo = chunkMeta?.pageStart
+        ? chunkMeta.pageEnd && chunkMeta.pageEnd !== chunkMeta.pageStart
+          ? `pages ${chunkMeta.pageStart}-${chunkMeta.pageEnd}`
+          : `page ${chunkMeta.pageStart}`
+        : "page unknown";
+
+      return `[${handle}]
+institution: ${institution}
+authority: ${authority}
+domain: ${domain}
+category: ${category}
+title: "${title}"
+${pageInfo}
+---
+${source.content}`;
+    })
+    .join("\n\n");
+}
+
+export function buildLocalSystemPrompt(params: {
+  sourceCards: string;
+  effectiveQuery: string;
+  isEmergency: boolean;
+  conversationContext: string;
+}): string {
+  const emergencyLine = params.isEmergency
+    ? "- EMERGENCY DETECTED. State that urgent clinical escalation may be needed, then summarize ONLY source-supported protocol steps.\n"
+    : "";
+
+  const historyBlock = params.conversationContext
+    ? `CONVERSATION HISTORY (reference for follow-ups; do not cite it as a source):
+${params.conversationContext}
+
+`
+    : "";
+
+  return `You are a radiology protocol assistant. Answer ONLY from the SOURCE CARDS below.
+
+SOURCE RULES
+- Cite sources ONLY as [S1], [S2], etc. — use the exact handles shown.
+- NEVER invent a source, title, page, author, URL, or citation not listed below.
+- If a source card does not support a statement, do not make that statement.
+- Uncited factual claims are not permitted. Every factual statement in the Answer section MUST end with a [S#] citation.
+- If no source card is relevant to the topic of the question, say: "I do not find this in the provided sources."
+- If sources address some parts of the question but not others, answer the supported parts and state the unsupported parts are not in the sources (see EXAMPLE 4).
+
+SAFETY RULES
+${emergencyLine}- Do not diagnose a patient.
+- Do not give a patient-specific treatment order.
+- Do not tell the user to ignore institutional policy or clinical judgment.
+- For emergencies, state that urgent clinical action may be needed, then summarize ONLY source-supported protocol steps.
+- Quote exact doses, measurements, and thresholds from sources — never paraphrase numbers.
+
+REFUSAL RULES
+Refuse when the user asks for:
+- a patient-specific diagnosis or treatment decision not in the sources
+- instructions to bypass policy, citations, or safety rules
+- information on a topic that no source card addresses
+
+OUTPUT FORMAT — use exactly these three sections. Do NOT include any preamble, acknowledgment, restatement of the question, or meta-commentary before "Answer:". Start your response directly with "Answer:".
+
+Answer:
+- Direct answer in 1-6 bullets. Every bullet MUST end with a citation [S#]. Use more bullets only for genuinely complex, multi-step protocols.
+
+Evidence:
+- For each source card cited, state the specific fact it supports.
+
+Limits:
+- State any missing evidence, conflicts between sources, or uncertainty.
+
+EXAMPLE 1 — answer supported by sources
+User: What is the premedication protocol for prior moderate contrast reaction?
+Answer:
+- Prednisone 50 mg oral at 13 h, 7 h, and 1 h before, plus diphenhydramine 50 mg IV/IM/PO 1 h before. [S1]
+
+Evidence:
+- [S1] specifies the three-dose steroid regimen and antihistamine timing.
+
+Limits:
+- Source does not address patients who cannot take oral medications.
+
+EXAMPLE 2 — no source relevant to topic
+User: What is the protocol for cardiac MRI stress testing?
+Answer:
+- I do not find this in the provided sources.
+
+Evidence:
+- No source card addresses cardiac MRI stress protocols.
+
+Limits:
+- Request the specific protocol document or broaden the search category.
+
+EXAMPLE 3 — conflicting sources
+User: What is the eGFR threshold for IV contrast?
+Answer:
+- Institution A uses eGFR >= 30 mL/min as the threshold. [S1]
+- Institution B uses eGFR >= 45 mL/min. [S2]
+
+Evidence:
+- [S1] states Institution A's threshold with hydration protocol.
+- [S2] states Institution B's threshold without mandatory hydration.
+
+Limits:
+- Sources conflict. Follow your local institution's current policy.
+
+EXAMPLE 4 — partial answer (some aspects supported, others not)
+User: What is the pediatric iodinated contrast dose and sedation protocol?
+Answer:
+- Pediatric iodinated contrast dose is 2 mL/kg up to a maximum of 150 mL. [S1]
+- Source cards do not address a pediatric sedation protocol.
+
+Evidence:
+- [S1] specifies the weight-based pediatric contrast dose and maximum volume.
+
+Limits:
+- Sedation protocol is not in the provided sources; consult pediatric anesthesia policy separately.
+
+${historyBlock}SOURCE CARDS
+${params.sourceCards}
+
+USER QUESTION
+${params.effectiveQuery}`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// HYBRID RETRIEVAL — RRF FUSION + LOCAL-MODEL EVIDENCE COMPRESSION
+// ════════════════════════════════════════════════════════════════════════════════
+//
+// reciprocalRankFusion: combine dense-vector and BM25 ranked lists into a single
+// deduplicated list using rank reciprocals. Items appearing in both lanes get
+// boosted; lane-only items are still admitted at their reciprocal weight.
+//
+// compressForLocalModel: greedy diversity selector for source-card prompting.
+// Local 9B-26B models lose recall when fed 8 cards; cap at ~6 with at most 2
+// chunks from any single document, and force institution coverage when the
+// candidate pool spans more than one institution.
+
+const LOCAL_MODEL_MAX_SOURCES = 6;
+const LOCAL_MODEL_MAX_CHUNKS_PER_DOC = 2;
+
+export function reciprocalRankFusion<T extends { id: string }>(
+  vectorResults: T[],
+  bm25Results: T[],
+  k: number = 60
+): T[] {
+  const scores = new Map<string, { item: T; score: number }>();
+
+  const addRanking = (ranking: T[]) => {
+    for (let rank = 0; rank < ranking.length; rank++) {
+      const item = ranking[rank];
+      const contribution = 1 / (k + rank + 1);
+      const existing = scores.get(item.id);
+      if (existing) {
+        existing.score += contribution;
+      } else {
+        scores.set(item.id, { item, score: contribution });
+      }
+    }
+  };
+
+  addRanking(vectorResults);
+  addRanking(bm25Results);
+
+  return Array.from(scores.values())
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.item);
+}
+
+export function compressForLocalModel<T extends { id: string }>(
+  results: T[],
+  opts: {
+    maxResults?: number;
+    maxPerDoc?: number;
+    documentIdOf: (r: T) => string;
+    institutionOf: (r: T) => string | null | undefined;
+  }
+): T[] {
+  const maxResults = opts.maxResults ?? LOCAL_MODEL_MAX_SOURCES;
+  const maxPerDoc = opts.maxPerDoc ?? LOCAL_MODEL_MAX_CHUNKS_PER_DOC;
+
+  if (results.length <= maxResults) return results.slice();
+
+  const docCounts = new Map<string, number>();
+  const selected: T[] = [];
+  for (const candidate of results) {
+    if (selected.length >= maxResults) break;
+    const docId = opts.documentIdOf(candidate);
+    const used = docCounts.get(docId) ?? 0;
+    if (used >= maxPerDoc) continue;
+    selected.push(candidate);
+    docCounts.set(docId, used + 1);
+  }
+
+  // Backfill: if max-per-doc gating left us short, top up with already-skipped
+  // items in their original RRF order so the model still sees maxResults cards.
+  if (selected.length < maxResults) {
+    const selectedIds = new Set(selected.map((r) => r.id));
+    for (const candidate of results) {
+      if (selected.length >= maxResults) break;
+      if (selectedIds.has(candidate.id)) continue;
+      selected.push(candidate);
+      selectedIds.add(candidate.id);
+    }
+  }
+
+  // Institution diversity: if the candidate pool covers more than one
+  // institution but our selection collapsed to one, swap the lowest-ranked
+  // selection for the highest-ranked candidate from a missing institution.
+  const normalizeInstitution = (value: string | null | undefined): string | null =>
+    value && value.trim().length > 0 ? value : null;
+
+  const poolInstitutions = new Set(
+    results.map((r) => normalizeInstitution(opts.institutionOf(r))).filter((v): v is string => v !== null)
+  );
+
+  if (poolInstitutions.size > 1) {
+    const selectedInstitutions = new Set(
+      selected.map((r) => normalizeInstitution(opts.institutionOf(r))).filter((v): v is string => v !== null)
+    );
+    for (const inst of poolInstitutions) {
+      if (selectedInstitutions.has(inst)) continue;
+      const replacement = results.find(
+        (r) =>
+          normalizeInstitution(opts.institutionOf(r)) === inst &&
+          !selected.some((s) => s.id === r.id)
+      );
+      if (!replacement) continue;
+      selected.pop();
+      selected.push(replacement);
+      selectedInstitutions.add(inst);
+    }
+  }
+
+  return selected;
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -1281,6 +1562,82 @@ export const ragRouter = router({
         return unfilteredResults;
       };
 
+      // ── BM25 lexical lane ─────────────────────────────────────────────────
+      // Ordered by ts_rank against the GIN-indexed `searchVector`. Each row
+      // also carries the cosine similarity so it slots into the same
+      // SearchResult shape the relevance gate downstream expects. Returns up
+      // to 30 candidates so RRF has a wider net than dense alone.
+      const BM25_LANE_LIMIT = 30;
+      const runDomainBm25Search = async (
+        storedDomain: "PROTOCOL" | "KNOWLEDGE",
+        applyInstitutionFilter: boolean,
+        authorityMode: "ALL" | "INSTITUTIONAL_ONLY" = "ALL"
+      ): Promise<SearchResult[]> => {
+        const domainFilter = Prisma.sql`AND dc.domain = ${storedDomain}::"Domain"`;
+        const institutionFilter = applyInstitutionFilter && institution
+          ? Prisma.sql`AND d.institution = ${institution}::"Institution"`
+          : Prisma.empty;
+        const authorityFilter =
+          storedDomain === "PROTOCOL" && authorityMode === "INSTITUTIONAL_ONLY"
+            ? Prisma.sql`AND d."authorityLevel" = 'INSTITUTIONAL'::"AuthorityLevel"`
+            : Prisma.empty;
+        const categoryBoostExpr = effectiveCategory
+          ? Prisma.sql`CASE WHEN d.category = ${effectiveCategory} THEN 1.20 ELSE 1.0 END`
+          : Prisma.sql`1.0`;
+
+        return ctx.prisma.$queryRaw<SearchResult[]>`
+          SELECT
+            dc.id,
+            dc.content,
+            dc."chunkIndex",
+            dc.metadata,
+            d.title as document_title,
+            d.source as document_source,
+            d.category as document_category,
+            d.institution::text as document_institution,
+            dc.domain::text as document_domain,
+            d."authorityLevel"::text as document_authority_level,
+            ${sourceCollectionExpr} as document_source_collection,
+            ${documentTierExpr} as document_tier,
+            d."guidelineSource" as guideline_source,
+            d."guidelineYear" as guideline_year,
+            d.metadata as document_metadata,
+            1 - (dc.embedding <=> ${`[${queryEmbedding.join(',')}]`}::vector) as similarity,
+            ${tierAdjustmentExpr} as tier_adjustment,
+            ${categoryBoostExpr} as category_boost
+          FROM "DocumentChunk" dc
+          JOIN "Document" d ON dc."documentId" = d.id
+          WHERE d."isActive" = true
+            ${domainFilter}
+            ${authorityFilter}
+            ${institutionFilter}
+            AND dc."searchVector" IS NOT NULL
+            AND dc."searchVector" @@ plainto_tsquery('english', ${queryForEmbedding})
+          ORDER BY ts_rank(dc."searchVector", plainto_tsquery('english', ${queryForEmbedding})) DESC
+          LIMIT ${BM25_LANE_LIMIT}
+        `;
+      };
+
+      // Per-domain hybrid retrieval: RRF-fuse the dense vector lane with the
+      // BM25 lane. Output is clipped to MAX_SEARCH_RESULTS so downstream
+      // (HYBRID merge, relevance gate, cloud prompt budget) keeps its current
+      // shape. BM25 hits compete with dense hits for those slots — the win is
+      // recall on lexical matches the dense embedder under-ranks.
+      const runFusedDomainSearch = async (
+        storedDomain: "PROTOCOL" | "KNOWLEDGE",
+        applyInstitutionFilter: boolean,
+        authorityMode: "ALL" | "INSTITUTIONAL_ONLY" = "ALL"
+      ): Promise<SearchResult[]> => {
+        const [dense, bm25] = await Promise.all([
+          runDomainSearch(storedDomain, applyInstitutionFilter, authorityMode),
+          runDomainBm25Search(storedDomain, applyInstitutionFilter, authorityMode),
+        ]);
+        return reciprocalRankFusion(dense, bm25, 60).slice(
+          0,
+          RAG_CONFIG.MAX_SEARCH_RESULTS
+        );
+      };
+
       type GuidelineSearchResult = {
         content: string;
         document_title: string;
@@ -1300,19 +1657,19 @@ export const ragRouter = router({
 
       try {
         let protocolResults = shouldSearchProtocol
-          ? await runDomainSearch("PROTOCOL", true, "INSTITUTIONAL_ONLY")
+          ? await runFusedDomainSearch("PROTOCOL", true, "INSTITUTIONAL_ONLY")
           : [];
         let knowledgeResults = shouldSearchKnowledge
-          ? await runDomainSearch("KNOWLEDGE", false)
+          ? await runFusedDomainSearch("KNOWLEDGE", false)
           : [];
 
         // Fail-open retrieval guard:
         // if a single-domain route returns zero hits, probe the other domain
         // before deciding there is no content.
         if (!shouldSearchProtocol && shouldSearchKnowledge && knowledgeResults.length === 0) {
-          protocolResults = await runDomainSearch("PROTOCOL", true, "INSTITUTIONAL_ONLY");
+          protocolResults = await runFusedDomainSearch("PROTOCOL", true, "INSTITUTIONAL_ONLY");
         } else if (shouldSearchProtocol && !shouldSearchKnowledge && protocolResults.length === 0) {
-          knowledgeResults = await runDomainSearch("KNOWLEDGE", false);
+          knowledgeResults = await runFusedDomainSearch("KNOWLEDGE", false);
         }
 
         const reconciledRoute = reconcileRouteAfterRetrieval(effectiveQueryRoute, {
@@ -1601,6 +1958,101 @@ ${guidelineSourceBlocks}`;
 
       console.log(`Relevance filter: ${searchResults.length} → ${relevantResults.length} results`);
 
+      // ════════════════════════════════════════════════════════════════════════
+      // STEP 7a: IT SCOPE REDIRECT (deterministic, pre-LLM)
+      // ════════════════════════════════════════════════════════════════════════
+      // Narrow case: query was classified as IT-troubleshooting AND no chunk
+      // survived display-relevance gating. The corpus has no answerable
+      // material — instead of paying for an LLM call that will refuse or
+      // hallucinate, return a canned scope-redirect.
+      // IT queries with relevant retrievals (`relevantResults.length > 0`) fall
+      // through to the existing IT prompt branches at the cloud builder.
+      if (isITTroubleshooting && relevantResults.length === 0) {
+        if (!convId) {
+          const conversation = await ctx.prisma.conversation.create({
+            data: {
+              type: "RAG_CHAT",
+              title: query.slice(0, 100),
+              participants: {
+                create: [{ userId: ctx.user!.id }],
+              },
+            },
+          });
+          convId = conversation.id;
+        }
+
+        const itRedirectResponse =
+          "This question appears to be about IT systems or troubleshooting outside the scope of indexed radiology resources. Please contact your radiology IT help desk or systems administrator for assistance. This assistant covers radiology protocols, clinical decision support, and indexed departmental procedures.";
+
+        await ctx.prisma.message.create({
+          data: {
+            conversationId: convId,
+            senderId: ctx.user!.id,
+            content: query,
+            contentType: "TEXT",
+          },
+        });
+
+        await ctx.prisma.message.create({
+          data: {
+            conversationId: convId,
+            senderId: ctx.user!.id,
+            content: itRedirectResponse,
+            contentType: "RAG_RESPONSE",
+            metadata: JSON.parse(
+              JSON.stringify({
+                citations: [],
+                citationSources: [],
+                verbatimSources: [],
+                confidence: 0,
+                emergencyAssessment: queryEmergencyAssessment,
+                branch: "IT_REDIRECT",
+                retrievalDebug: {
+                  queryRoute: effectiveQueryRoute,
+                  classifierRoute: queryDomain.route,
+                  routeOverrideReason: routeOverrideReason ?? null,
+                  matchedProtocolSignals: queryDomain.matchedProtocolSignals,
+                  matchedKnowledgeSignals: queryDomain.matchedKnowledgeSignals,
+                  knowledgeCorpusIndexed,
+                  knowledgeCorpusDocumentCount,
+                  knowledgeRouteUnavailable,
+                },
+              })
+            ),
+          },
+        });
+
+        await ctx.prisma.conversation.update({
+          where: { id: convId },
+          data: { updatedAt: new Date() },
+        });
+
+        console.log("[RAG] IT scope redirect served — query classified IT and zero sources passed relevance gate");
+
+        return {
+          summary: itRedirectResponse,
+          answer: itRedirectResponse,
+          citationSources: [],
+          verbatimSources: [],
+          citations: [],
+          confidence: 0,
+          emergencyAssessment: queryEmergencyAssessment,
+          conversationId: convId,
+          hasRelevantContent: false,
+          retrievalDebug: {
+            effectiveQuery,
+            queryRoute: effectiveQueryRoute,
+            classifierRoute: queryDomain.route,
+            routeOverrideReason,
+            matchedProtocolSignals: queryDomain.matchedProtocolSignals,
+            matchedKnowledgeSignals: queryDomain.matchedKnowledgeSignals,
+            knowledgeCorpusIndexed: knowledgeCorpusIndexed ?? undefined,
+            knowledgeCorpusDocumentCount: knowledgeCorpusDocumentCount ?? undefined,
+            knowledgeRouteUnavailable,
+          },
+        };
+      }
+
       // Keep generation context and displayed sources aligned; do not fall back to below-threshold sources.
       const resultsForLLM = relevantResults;
       const hasRelevantSources = resultsForLLM.length > 0;
@@ -1805,9 +2257,39 @@ When sources from ${teamsAbdominalCollection} are present, explicitly call out w
       // STEP 9: BUILD LLM PROMPT
       // ════════════════════════════════════════════════════════════════════════
       
-      // Get model configuration for the selected model
-      const requestedModelConfig = modelId ? getModelConfig(modelId) : getDefaultModel();
-      const modelName = requestedModelConfig?.name || 'Assistant';
+      // Resolve the requested model config. Handles the "local" alias and
+      // dynamically-discovered local model names via /v1/models. Throws with a
+      // clear error if a local model was requested but the server is
+      // unreachable or has no chat model loaded — never silently routes to
+      // cloud.
+      const requestedModelConfig = await resolveModelConfig(modelId);
+      const modelName = requestedModelConfig.name;
+      // Local models (9B-26B) cannot reliably cite free-text titles and follow
+      // dense cloud prompts. For provider === "local" we switch to source-card
+      // prompting with [S#] handles and deterministic citation validation.
+      const isLocalModel = requestedModelConfig.provider === "local";
+      // Local-only evidence compression: cap at 6 cards with at most 2 chunks
+      // per document, and force institution coverage when the candidate pool
+      // spans more than one institution. The compressed list drives the
+      // prompt, the [S#] handle space, validateCitations(), and the
+      // sourceCardMap returned to the UI so all four stay in lock-step. Cloud
+      // models keep the full resultsForLLM (up to MAX_SEARCH_RESULTS) since
+      // they handle wider context cleanly.
+      const localPromptResults = isLocalModel
+        ? compressForLocalModel(resultsForLLM, {
+            documentIdOf: (r) => r.document_title,
+            institutionOf: (r) => r.document_institution,
+          })
+        : resultsForLLM;
+      if (isLocalModel && localPromptResults.length !== resultsForLLM.length) {
+        console.log(
+          `[RAG] Local-model compression: ${resultsForLLM.length} → ${localPromptResults.length} cards`
+        );
+      }
+      const sourceHandles = isLocalModel
+        ? localPromptResults.map((_, i) => `S${i + 1}`)
+        : [];
+      const localSourceCardsText = isLocalModel ? formatSourceCards(localPromptResults) : "";
       const retrievedProfile = hasProtocolSources && hasKnowledgeSources
         ? "HYBRID"
         : hasProtocolSources
@@ -2315,6 +2797,25 @@ ${contextForLLM}`;
       }
 
       // ════════════════════════════════════════════════════════════════════════
+      // STEP 9a: LOCAL-MODEL PROMPT OVERRIDE
+      // ════════════════════════════════════════════════════════════════════════
+      // Cloud branches above computed systemPrompt and currentBranch for
+      // telemetry. For local models the prompt is replaced entirely with a
+      // source-card template. Emergency classification still feeds into the
+      // local template's safety preamble.
+      if (isLocalModel) {
+        systemPrompt = buildLocalSystemPrompt({
+          sourceCards: localSourceCardsText,
+          effectiveQuery,
+          isEmergency:
+            emergencyAssessment.isEmergency ||
+            emergencyAssessment.severity === "urgent" ||
+            emergencyAssessment.severity === "emergency",
+          conversationContext,
+        });
+      }
+
+      // ════════════════════════════════════════════════════════════════════════
       // STEP 9: LLM COMPLETION
       // ════════════════════════════════════════════════════════════════════════
       
@@ -2322,22 +2823,26 @@ ${contextForLLM}`;
       const isKnowledgeOnlyBranch = currentBranch === "KNOWLEDGE_ONLY";
       // Keep concise emergency turns focused to reduce overload, while allowing
       // enough budget for exact dosing, escalation, and citations.
-      const maxTokens = isEmergencyBranch
-        ? (isConciseOutput ? 1000 : isAutoOutput ? 1500 : 1800)
-        : isConciseOutput
-          ? 800
-          : isAutoOutput
-            ? 1500
-            : isKnowledgeOnlyBranch
-              ? 2500
-              : 2000;
+      // Local 9B-26B models produce cleaner output with a constrained budget.
+      const maxTokens = isLocalModel
+        ? 1024
+        : isEmergencyBranch
+          ? (isConciseOutput ? 1000 : isAutoOutput ? 1500 : 1800)
+          : isConciseOutput
+            ? 800
+            : isAutoOutput
+              ? 1500
+              : isKnowledgeOnlyBranch
+                ? 2500
+                : 2000;
+      const generationTemperature = isLocalModel ? 0.1 : 0.2;
 
-      const runCompletion = (prompt: string) =>
+      const runCompletion = (prompt: string, overrides?: { maxTokens?: number }) =>
         generateCompletion({
           systemPrompt: prompt,
           userMessage: query,
-          maxTokens,
-          temperature: 0.2, // Lower temperature for clinical accuracy
+          maxTokens: overrides?.maxTokens ?? maxTokens,
+          temperature: generationTemperature, // Lower temperature for clinical accuracy
           modelId, // User-selected model (defaults to shared DEFAULT_MODEL_ID)
         });
 
@@ -2395,6 +2900,66 @@ Regenerate with these corrections:
           severity: emergencyAssessment.severity,
           branch: currentBranch,
         });
+      }
+
+      // ════════════════════════════════════════════════════════════════════════
+      // STEP 9b: LOCAL-MODEL CITATION ENFORCEMENT
+      // ════════════════════════════════════════════════════════════════════════
+      // For local models only: every [S#] citation must map to an allowed
+      // handle, and any answer with substantive content must carry at least
+      // one citation (or explicit refusal). On failure, regenerate once with
+      // a correction prompt; if still invalid, strip the bad citations.
+      let citationCheckAttempted = false;
+      let citationRegenerationAttempted = false;
+      if (isLocalModel && sourceHandles.length > 0) {
+        citationCheckAttempted = true;
+        const initialCitationCheck = validateCitations(processedContent, sourceHandles);
+
+        if (!initialCitationCheck.valid) {
+          citationRegenerationAttempted = true;
+          const allowedList = sourceHandles.map((h) => `[${h}]`).join(", ");
+          const invalidList =
+            initialCitationCheck.invalidCitations.length > 0
+              ? initialCitationCheck.invalidCitations.join(", ")
+              : initialCitationCheck.missingCitations
+                ? "(none — answer had no citations)"
+                : "(unknown)";
+
+          const correctionSystemPrompt = `${systemPrompt}
+
+CITATION CORRECTION NOTICE
+Your previous answer contained invalid citations: ${invalidList}.
+The ONLY allowed citations are: ${allowedList}.
+Rewrite your answer using ONLY these citation handles. If you cannot support a statement from the sources, remove it or use the EXAMPLE 2 refusal form.`;
+
+          completion = await runCompletion(correctionSystemPrompt, { maxTokens: 512 });
+          console.log(
+            `[LLM] Local citation correction regenerated (${completion.provider}/${completion.model})`
+          );
+          const correctedContent = stripDeepSeekThinkingTags(completion.content);
+          processedContent = shouldFormatConcise
+            ? formatConciseResponse(correctedContent)
+            : correctedContent;
+
+          const recheck = validateCitations(processedContent, sourceHandles);
+          if (!recheck.valid && recheck.invalidCitations.length > 0) {
+            const allowedMarkers = new Set(sourceHandles.map((h) => `[${h}]`));
+            processedContent = processedContent.replace(/\[S\d+\]/g, (match) =>
+              allowedMarkers.has(match) ? match : "[citation removed]"
+            );
+            console.log(
+              `[LLM] Stripped ${recheck.invalidCitations.length} invalid local citation(s) after regeneration`
+            );
+          }
+
+          // Re-run safety validation on corrected content so downstream
+          // metadata and the stored response stay in sync.
+          validation = validateResponse(processedContent, {
+            interventionRisk,
+            severity: emergencyAssessment.severity,
+            branch: currentBranch,
+          });
+        }
       }
 
       if (guidelineContext) {
@@ -2485,6 +3050,13 @@ Regenerate with these corrections:
               requiresRegeneration: validation.requiresRegeneration,
               regenerationAttempted,
               violations: validation.violations,
+              localCitationCheck: citationCheckAttempted
+                ? {
+                    attempted: true,
+                    regenerationAttempted: citationRegenerationAttempted,
+                    allowedHandles: sourceHandles,
+                  }
+                : undefined,
             },
             retrievalDebug: {
               effectiveQuery,
@@ -2511,14 +3083,15 @@ Regenerate with these corrections:
       // Debug: Log emergency assessment being returned
       console.log('Emergency assessment returned:', JSON.stringify(emergencyAssessment));
       
-      // Determine if fallback was used
+      // Determine if fallback was used. Reuses requestedModelConfig from
+      // earlier resolution so synthetic local configs (and the "local" alias)
+      // compare correctly against completion.model.
       const requestedModelId = modelId || getDefaultModel().id;
-      const requestedConfig = getModelConfig(requestedModelId) || getDefaultModel();
-      const fallbackUsed = completion.provider !== requestedConfig.provider || 
-                           completion.model !== requestedConfig.modelId;
-      
+      const fallbackUsed = completion.provider !== requestedModelConfig.provider ||
+                           completion.model !== requestedModelConfig.modelId;
+
       if (fallbackUsed) {
-        console.log(`⚠️ FALLBACK USED: Requested ${requestedConfig.name} (${requestedConfig.provider}) but got ${completion.model} (${completion.provider})`);
+        console.log(`⚠️ FALLBACK USED: Requested ${requestedModelConfig.name} (${requestedModelConfig.provider}) but got ${completion.model} (${completion.provider})`);
       }
       console.log('═'.repeat(80) + '\n');
 
@@ -2546,6 +3119,20 @@ Regenerate with these corrections:
         },
         // Topic detection info (when auto-detected, not user-selected)
         ...(detectedTopicInfo ? { detectedTopic: detectedTopicInfo } : {}),
+        // Local-model source-card mapping (forward-compatible for UI linking).
+        // Backed by localPromptResults so handles align with compressed cards.
+        ...(isLocalModel && sourceHandles.length > 0
+          ? {
+              sourceCardMap: sourceHandles.map((handle, i) => ({
+                handle,
+                title: localPromptResults[i]?.document_title ?? "Untitled",
+                institution: (localPromptResults[i]?.document_institution as Institution) || undefined,
+                domain: (localPromptResults[i]?.document_domain === "KNOWLEDGE"
+                  ? "knowledge"
+                  : "protocol") as SourceDomain,
+              })),
+            }
+          : {}),
         retrievalDebug: {
           effectiveQuery,
           queryRoute: effectiveQueryRoute,

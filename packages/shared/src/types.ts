@@ -179,6 +179,27 @@ export function getDefaultModel(): LLMModelConfig {
   );
 }
 
+// Builds an LLMModelConfig for a model name discovered at runtime from the
+// local server's /v1/models endpoint. The returned config has provider="local"
+// so the rest of the pipeline (source-card prompting, the local client path)
+// recognizes it as a local model. baseUrl is only used in the description.
+export function buildSyntheticLocalModelConfig(
+  modelId: string,
+  baseUrl?: string,
+): LLMModelConfig {
+  const where = baseUrl && baseUrl.trim().length > 0 ? baseUrl : "local server";
+  return {
+    id: modelId,
+    name: modelId,
+    provider: "local",
+    modelId,
+    description: `Local model via ${where}`,
+    contextWindow: 32000,
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+  };
+}
+
 // ════════════════════════════════════════════════════════════════════════════════
 // VERBATIM SOURCE TYPE (for RAG responses)
 // ════════════════════════════════════════════════════════════════════════════════

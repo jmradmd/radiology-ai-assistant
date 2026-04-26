@@ -16,32 +16,18 @@ export type Department =
   | "EMERGENCY"
   | "GENERAL";
 
-// Model IDs match LLM_MODELS in @rad-assist/shared
-export type ModelId =
-  | "claude-opus"
-  | "claude-sonnet"
-  | "claude-haiku"
-  | "gpt-5.2"
-  | "minimax-m2.5"
-  | "gemini-3.0"
-  | "deepseek-r1"
-  | "kimi-k2.5"
-  | "local";
-
-const VALID_MODEL_IDS: ReadonlySet<ModelId> = new Set([
-  "claude-opus",
-  "claude-sonnet",
-  "claude-haiku",
-  "gpt-5.2",
-  "minimax-m2.5",
-  "gemini-3.0",
-  "deepseek-r1",
-  "kimi-k2.5",
-  "local",
-]);
+// Model IDs cover both the static LLM_MODELS entries in @rad-assist/shared
+// and dynamically-discovered local model names (e.g., the values reported by
+// a local server's /v1/models endpoint). Validation is purely shape-based;
+// authoritative resolution happens server-side via resolveModelConfig.
+export type ModelId = string;
 
 function isValidModelId(value: unknown): value is ModelId {
-  return typeof value === "string" && VALID_MODEL_IDS.has(value as ModelId);
+  return (
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    value.length <= 100
+  );
 }
 
 // Re-export types for convenience

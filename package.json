@@ -15,6 +15,7 @@
     "package:desktop:win": "npm run package:win --workspace=@rad-assist/desktop",
     "db:generate": "npm run generate --workspace=@rad-assist/db",
     "db:push": "npm run push --workspace=@rad-assist/db",
+    "db:migrate": "npm run migrate --workspace=@rad-assist/db",
     "db:studio": "npm run studio --workspace=@rad-assist/db",
     "seed:protocols": "npx tsx scripts/seed-protocols.ts",
     "ingest:institution-a": "npx tsx scripts/ingest-institution.ts --institution INSTITUTION_A",
@@ -36,6 +37,7 @@
     "seed:demo": "npx tsx scripts/seed-demo.ts",
     "seed:demo:clean": "npx tsx scripts/seed-demo.ts --clean",
     "test": "npx tsx evaluation/scripts/eval-unit.ts",
+    "test:bench": "npx tsx --test benchmarks/harness/*.test.ts",
     "eval": "npx tsx evaluation/scripts/eval-pipeline.ts --skip-retrieval",
     "eval:full": "npx tsx evaluation/scripts/eval-pipeline.ts"
   },

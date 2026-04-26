@@ -11,8 +11,21 @@ export interface ProviderHealthResult {
     model: string | null;
     message: string | null;
   };
+  // Discovered local models, when LOCAL_LLM_URL is reachable. The chatModels
+  // list is filtered to exclude embedding-named entries so the UI can render
+  // it directly. Underlying discoverLocalModels() cache is unfiltered so the
+  // embedding client retains visibility into embedding models.
+  localModels?: {
+    chatModels: string[];
+    embeddingModels: string[];
+  };
   healthy: boolean;
 }
+
+// Names that look like embedding models even when the local server reports them
+// as chat (or with no type). LM Studio sometimes mis-classifies; this catches
+// the residual cases when surfacing chatModels to the UI.
+const EMBEDDING_NAME_PATTERN = /embed|nomic|embedding/i;
 
 export interface DiscoveredModels {
   chatModels: string[];
@@ -306,7 +319,20 @@ export async function checkProviderHealth(): Promise<ProviderHealthResult> {
     // Step 4: Combine and return
     const healthy =
       embeddingResult.status === "ok" && llmResult.status === "ok";
-    return { llm: llmResult, embedding: embeddingResult, healthy };
+
+    // Surface discovered local models so the UI can render dynamic options.
+    // Filter chatModels with EMBEDDING_NAME_PATTERN as a safety net — the
+    // underlying cache is left untouched.
+    const localModels = localDiscovery
+      ? {
+          chatModels: localDiscovery.chatModels.filter(
+            (id) => !EMBEDDING_NAME_PATTERN.test(id),
+          ),
+          embeddingModels: localDiscovery.embeddingModels,
+        }
+      : undefined;
+
+    return { llm: llmResult, embedding: embeddingResult, localModels, healthy };
   } catch {
     // A broken health check must never block the app
     return {

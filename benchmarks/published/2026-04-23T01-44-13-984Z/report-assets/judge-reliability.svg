@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-label="Inter-rater reliability — quadratic-weighted Cohen's κ" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"><title>Inter-rater reliability — quadratic-weighted Cohen's κ</title><desc>Pass 1 = primary judge. Pass 2 &amp; 3 = independent Claude Opus 4.7 reasoning passes. Threshold κ ≥ 0.6.</desc>
+    <style>
+      :root {
+        --bg: #FFFFFF;
+        --fg: #111827;
+        --fg2: #4B5563;
+        --subtitle: #6B7280;
+        --axis: #6B7280;
+        --grid: #F3F4F6;
+        --legend-border: #E5E7EB;
+        --tier-light: #4C78A8;
+        --tier-medium: #E45756;
+        --tier-heavy: #54A24B;
+        --gate: #B91C1C;
+        --zone-fill: #D1FAE5;
+        --zone-fill-opacity: 0.5;
+        --zone-text: #166534;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0D1117;
+          --fg: #F3F4F6;
+          --fg2: #9CA3AF;
+          --subtitle: #9CA3AF;
+          --axis: #9CA3AF;
+          --grid: #30363D;
+          --legend-border: #374151;
+          --gate: #F87171;
+          --zone-fill: #14532D;
+          --zone-fill-opacity: 0.45;
+          --zone-text: #86EFAC;
+        }
+      }
+      .chart-bg { fill: var(--bg); }
+      .chart-title { fill: var(--fg); font-size: 22px; font-weight: 700; }
+      .chart-subtitle { fill: var(--subtitle); font-size: 14px; font-weight: 400; }
+      .chart-axis-title { fill: var(--fg); font-size: 14px; font-weight: 600; }
+      .chart-tick { fill: var(--fg2); font-size: 12px; font-weight: 400; }
+      .chart-value-label { fill: var(--fg); font-size: 11px; font-weight: 600; }
+      .chart-bar-value-label { fill: #111827; font-size: 11px; font-weight: 600; }
+      .chart-point-label { fill: var(--fg); font-size: 12px; font-weight: 500; }
+      .chart-legend-label { fill: var(--fg2); font-size: 13px; font-weight: 500; }
+      .chart-note { fill: var(--subtitle); font-size: 11px; font-weight: 400; }
+      .chart-value-pill { fill: #FFFFFF; }
+      .chart-legend-box { fill: #FFFFFF; stroke: #E5E7EB; stroke-width: 1; }
+      .chart-acceptable-zone { fill: #F0FDF4; fill-opacity: 0.3; }
+      .chart-acceptable-label { fill: #166534; font-size: 11px; font-weight: 600; }
+      .chart-zero-baseline { stroke: #D1D5DB; stroke-width: 1.5; }
+      .chart-gridline { stroke: var(--grid); stroke-width: 1; }
+      .chart-axis { stroke: var(--axis); stroke-width: 1; }
+      .chart-gate { stroke: var(--gate); stroke-width: 1.5; stroke-dasharray: 6,4; }
+      .chart-gate-label { fill: var(--gate); font-size: 11px; font-weight: 600; }
+      .chart-zone { fill: var(--zone-fill); fill-opacity: var(--zone-fill-opacity); }
+      .chart-zone-label { fill: var(--zone-text); font-size: 12px; font-weight: 600; }
+      .chart-bar-light { fill: var(--tier-light); }
+      .chart-bar-medium { fill: var(--tier-medium); }
+      .chart-bar-heavy { fill: var(--tier-heavy); }
+      .chart-errbar { stroke: var(--fg); stroke-width: 1.5; }
+      .chart-scatter-stroke { stroke: var(--bg); stroke-width: 1.5; }
+      .chart-line { fill: none; }
+    </style><rect class="chart-bg" width="1200" height="700"/><text class="chart-title" x="100" y="46">Inter-rater reliability — quadratic-weighted Cohen's κ</text><text class="chart-subtitle" x="100" y="70">Pass 1 = primary judge. Pass 2 &amp; 3 = independent Claude Opus 4.7 reasoning passes. Threshold κ ≥ 0.6.</text><rect class="chart-acceptable-zone" x="100" y="92" width="1040" height="184.7272727272728"/><text class="chart-acceptable-label" x="1130" y="110" text-anchor="end">Acceptable: κ ≥ 0.6</text><line class="chart-gridline" x1="100" x2="1140" y1="553.8181818181819" y2="553.8181818181819"/><text class="chart-tick" x="90" y="557.8181818181819" text-anchor="end">0</text><line class="chart-gridline" x1="100" x2="1140" y1="461.45454545454544" y2="461.45454545454544"/><text class="chart-tick" x="90" y="465.45454545454544" text-anchor="end">0.2</text><line class="chart-gridline" x1="100" x2="1140" y1="369.0909090909091" y2="369.0909090909091"/><text class="chart-tick" x="90" y="373.0909090909091" text-anchor="end">0.4</text><line class="chart-gridline" x1="100" x2="1140" y1="276.7272727272728" y2="276.7272727272728"/><text class="chart-tick" x="90" y="280.7272727272728" text-anchor="end">0.6</text><line class="chart-gridline" x1="100" x2="1140" y1="184.36363636363637" y2="184.36363636363637"/><text class="chart-tick" x="90" y="188.36363636363637" text-anchor="end">0.8</text><line class="chart-gridline" x1="100" x2="1140" y1="92" y2="92"/><text class="chart-tick" x="90" y="96" text-anchor="end">1</text><line class="chart-axis" x1="100" x2="1140" y1="600" y2="600"/><line class="chart-axis" x1="100" x2="100" y1="92" y2="600"/><line class="chart-zero-baseline" x1="100" x2="1140" y1="553.8181818181819" y2="553.8181818181819"/><line class="chart-gate" x1="100" x2="1140" y1="276.7272727272728" y2="276.7272727272728"/><text class="chart-gate-label" x="110" y="270.7272727272728" text-anchor="start">κ ≥ 0.6</text><rect x="181.6" y="170.4211577506153" width="44.8" height="383.3970240675666" fill="#54A24B" fill-opacity="0.85" data-dim="accuracy" data-kappa="0.8301904064455181"/><text class="chart-tick" x="204" y="620" text-anchor="middle">accuracy</text><text class="chart-value-label" x="204" y="164.4211577506153" text-anchor="middle">0.83</text><rect x="389.6" y="153.40586935231602" width="44.8" height="400.41231246586585" fill="#54A24B" fill-opacity="0.85" data-dim="completeness" data-kappa="0.8670345348670323"/><text class="chart-tick" x="412" y="620" text-anchor="middle">completeness</text><text class="chart-value-label" x="412" y="147.40586935231602" text-anchor="middle">0.867</text><rect x="597.6" y="211.49940107467887" width="44.8" height="342.318780743503" fill="#54A24B" fill-opacity="0.85" data-dim="safety" data-kappa="0.7412414543658529"/><text class="chart-tick" x="620" y="620" text-anchor="middle">safety</text><text class="chart-value-label" x="620" y="205.49940107467887" text-anchor="middle">0.741</text><rect x="805.6" y="274.1513433006349" width="44.8" height="279.666838517547" fill="#54A24B" fill-opacity="0.85" data-dim="hallucination" data-kappa="0.6055777999395702"/><text class="chart-tick" x="828" y="620" text-anchor="middle">hallucination</text><text class="chart-value-label" x="828" y="264.7272727272728" text-anchor="middle">0.606</text><rect x="1013.6" y="187.78013576281904" width="44.8" height="366.0380460553628" fill="#54A24B" fill-opacity="0.85" data-dim="format" data-kappa="0.7926020682301163"/><text class="chart-tick" x="1036" y="620" text-anchor="middle">format</text><text class="chart-value-label" x="1036" y="181.78013576281904" text-anchor="middle">0.793</text><text class="chart-axis-title" x="24" y="346" text-anchor="middle" transform="rotate(-90 24 346)">Cohen's κ</text></svg>

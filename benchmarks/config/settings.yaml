@@ -1,0 +1,19 @@
+# Harness defaults. CLI flags can override the execution-facing values, but the
+# resolved snapshot is written to `results/raw/<run-id>/meta.json`.
+base_url: http://localhost:3000
+ollama_base_url: http://localhost:11434
+benchmark_endpoint_env_var: ENABLE_BENCHMARK_ENDPOINT
+inference_timeout_s: 120
+reconnect_retries: 2
+reconnect_delay_s: 5
+default_runs_per_query: 1
+default_max_tokens: 1024
+temperature: 0
+judge_sample_rate: 0.2
+judge_source_char_limit: 6000
+judge_retry_delays_ms:
+  - 2000
+  - 5000
+  - 15000
+warmup_max_tokens: 1
+latency_gate_s: 10

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-label="Radar of mean judge scores (0-3 scale) across five dimensions for four local models." font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"><title>Quality Profile by Model — Optimized Pipeline</title><desc>Radar of mean judge scores (0-3 scale) across five dimensions for four local models.</desc><style>
+      :root {
+        --bg: #FFFFFF;
+        --fg: #111827;
+        --fg2: #4B5563;
+        --subtitle: #6B7280;
+        --axis: #6B7280;
+        --grid: #F3F4F6;
+        --legend-border: #E5E7EB;
+        --gate: #B91C1C;
+        --zone-fill: #D1FAE5;
+        --zone-fill-opacity: 0.5;
+        --zone-text: #166534;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0D1117;
+          --fg: #F3F4F6;
+          --fg2: #9CA3AF;
+          --subtitle: #9CA3AF;
+          --axis: #9CA3AF;
+          --grid: #30363D;
+          --legend-border: #374151;
+          --gate: #F87171;
+          --zone-fill: #14532D;
+          --zone-fill-opacity: 0.45;
+          --zone-text: #86EFAC;
+        }
+      }
+      .chart-bg { fill: var(--bg); }
+      .chart-title { fill: var(--fg); font-size: 22px; font-weight: 700; }
+      .chart-subtitle { fill: var(--subtitle); font-size: 14px; font-weight: 400; }
+      .chart-axis-title { fill: var(--fg); font-size: 14px; font-weight: 600; }
+      .chart-tick { fill: var(--fg2); font-size: 12px; font-weight: 400; }
+      .chart-value-label { fill: var(--fg); font-size: 11px; font-weight: 600; }
+      .chart-bar-value-label { fill: #111827; font-size: 11px; font-weight: 600; }
+      .chart-point-label { fill: var(--fg); font-size: 12px; font-weight: 500; }
+      .chart-legend-label { fill: var(--fg2); font-size: 13px; font-weight: 500; }
+      .chart-note { fill: var(--subtitle); font-size: 11px; font-weight: 400; }
+      .chart-value-pill { fill: #FFFFFF; }
+      .chart-legend-box { fill: #FFFFFF; stroke: #E5E7EB; stroke-width: 1; }
+      .chart-zero-baseline { stroke: #D1D5DB; stroke-width: 1.5; }
+      .chart-gridline { stroke: var(--grid); stroke-width: 1; }
+      .chart-axis { stroke: var(--axis); stroke-width: 1; }
+      .chart-gate { stroke: var(--gate); stroke-width: 1.5; stroke-dasharray: 6,4; }
+      .chart-gate-label { fill: var(--gate); font-size: 11px; font-weight: 600; }
+      .chart-zone { fill: var(--zone-fill); fill-opacity: var(--zone-fill-opacity); }
+      .chart-zone-label { fill: var(--zone-text); font-size: 12px; font-weight: 600; }
+      .chart-baseline-bar { fill: none; stroke-width: 2; stroke-dasharray: 4,3; }
+      .chart-cell-label { font-size: 12px; font-weight: 600; }
+</style><rect class="chart-bg" width="1200" height="760"/><text class="chart-title" x="100" y="50">Quality Profile by Model — Optimized Pipeline</text><text class="chart-subtitle" x="100" y="74">Mean judge score per dimension (0-3 scale, calibrated rubric). Larger area is better.</text><polygon points="600.00,330.00 676.08,385.28 647.02,474.72 552.98,474.72 523.92,385.28" fill="none" class="chart-gridline"/><text class="chart-tick" x="606" y="326.0" text-anchor="start">1</text><polygon points="600.00,250.00 752.17,360.56 694.05,539.44 505.95,539.44 447.83,360.56" fill="none" class="chart-gridline"/><text class="chart-tick" x="606" y="246.0" text-anchor="start">2</text><polygon points="600.00,170.00 828.25,335.84 741.07,604.16 458.93,604.16 371.75,335.84" fill="none" class="chart-gridline"/><text class="chart-tick" x="606" y="166.0" text-anchor="start">3</text><line class="chart-axis" x1="600" y1="410" x2="600.00" y2="170.00"/><text class="chart-axis-title" x="600.00" y="144.00" text-anchor="middle">accuracy</text><line class="chart-axis" x1="600" y1="410" x2="828.25" y2="335.84"/><text class="chart-axis-title" x="852.98" y="327.80" text-anchor="start">completeness</text><line class="chart-axis" x1="600" y1="410" x2="741.07" y2="604.16"/><text class="chart-axis-title" x="756.35" y="625.20" text-anchor="start">format</text><line class="chart-axis" x1="600" y1="410" x2="458.93" y2="604.16"/><text class="chart-axis-title" x="443.65" y="625.20" text-anchor="end">safety</text><line class="chart-axis" x1="600" y1="410" x2="371.75" y2="335.84"/><text class="chart-axis-title" x="347.02" y="327.80" text-anchor="end">hallucination</text><polygon points="600.00,254.25 718.35,371.54 725.39,582.59 486.65,566.02 375.42,337.03" fill="#E45756" fill-opacity="0.12" stroke="#E45756" stroke-width="2"/><circle cx="600.00" cy="254.25" r="3.5" fill="#E45756" stroke="var(--bg)" stroke-width="1.5"/><circle cx="718.35" cy="371.54" r="3.5" fill="#E45756" stroke="var(--bg)" stroke-width="1.5"/><circle cx="725.39" cy="582.59" r="3.5" fill="#E45756" stroke="var(--bg)" stroke-width="1.5"/><circle cx="486.65" cy="566.02" r="3.5" fill="#E45756" stroke="var(--bg)" stroke-width="1.5"/><circle cx="375.42" cy="337.03" r="3.5" fill="#E45756" stroke="var(--bg)" stroke-width="1.5"/><polygon points="600.00,250.00 727.91,368.44 735.16,596.03 486.87,565.71 377.26,337.63" fill="#4C78A8" fill-opacity="0.12" stroke="#4C78A8" stroke-width="2"/><circle cx="600.00" cy="250.00" r="3.5" fill="#4C78A8" stroke="var(--bg)" stroke-width="1.5"/><circle cx="727.91" cy="368.44" r="3.5" fill="#4C78A8" stroke="var(--bg)" stroke-width="1.5"/><circle cx="735.16" cy="596.03" r="3.5" fill="#4C78A8" stroke="var(--bg)" stroke-width="1.5"/><circle cx="486.87" cy="565.71" r="3.5" fill="#4C78A8" stroke="var(--bg)" stroke-width="1.5"/><circle cx="377.26" cy="337.63" r="3.5" fill="#4C78A8" stroke="var(--bg)" stroke-width="1.5"/><polygon points="600.00,250.39 726.81,368.80 735.39,596.35 486.19,566.64 378.36,337.99" fill="#72B7B2" fill-opacity="0.12" stroke="#72B7B2" stroke-width="2"/><circle cx="600.00" cy="250.39" r="3.5" fill="#72B7B2" stroke="var(--bg)" stroke-width="1.5"/><circle cx="726.81" cy="368.80" r="3.5" fill="#72B7B2" stroke="var(--bg)" stroke-width="1.5"/><circle cx="735.39" cy="596.35" r="3.5" fill="#72B7B2" stroke="var(--bg)" stroke-width="1.5"/><circle cx="486.19" cy="566.64" r="3.5" fill="#72B7B2" stroke="var(--bg)" stroke-width="1.5"/><circle cx="378.36" cy="337.99" r="3.5" fill="#72B7B2" stroke="var(--bg)" stroke-width="1.5"/><polygon points="600.00,253.86 725.70,369.16 735.16,596.03 485.96,566.96 376.89,337.51" fill="#F58518" fill-opacity="0.12" stroke="#F58518" stroke-width="2"/><circle cx="600.00" cy="253.86" r="3.5" fill="#F58518" stroke="var(--bg)" stroke-width="1.5"/><circle cx="725.70" cy="369.16" r="3.5" fill="#F58518" stroke="var(--bg)" stroke-width="1.5"/><circle cx="735.16" cy="596.03" r="3.5" fill="#F58518" stroke="var(--bg)" stroke-width="1.5"/><circle cx="485.96" cy="566.96" r="3.5" fill="#F58518" stroke="var(--bg)" stroke-width="1.5"/><circle cx="376.89" cy="337.51" r="3.5" fill="#F58518" stroke="var(--bg)" stroke-width="1.5"/><rect class="chart-legend-box" x="926" y="108" width="244" height="88" rx="6"/><rect x="940" y="119" width="14" height="14" fill="#E45756"/><text class="chart-legend-label" x="962" y="130">gemma4:26b</text><rect x="940" y="137" width="14" height="14" fill="#4C78A8"/><text class="chart-legend-label" x="962" y="148">qwen3.5:9b</text><rect x="940" y="155" width="14" height="14" fill="#72B7B2"/><text class="chart-legend-label" x="962" y="166">qwen3.5:4b</text><rect x="940" y="173" width="14" height="14" fill="#F58518"/><text class="chart-legend-label" x="962" y="184">qwen3.6:35b-a3b</text><text x="600.00" y="124" text-anchor="middle" font-size="11" font-weight="600"><tspan fill="#E45756">1.95</tspan> · <tspan fill="#4C78A8">2.00</tspan> · <tspan fill="#72B7B2">2.00</tspan> · <tspan fill="#F58518">1.95</tspan></text><text x="852.98" y="307.80" text-anchor="start" font-size="11" font-weight="600"><tspan fill="#E45756">1.56</tspan> · <tspan fill="#4C78A8">1.68</tspan> · <tspan fill="#72B7B2">1.67</tspan> · <tspan fill="#F58518">1.65</tspan></text><text x="756.35" y="645.20" text-anchor="start" font-size="11" font-weight="600"><tspan fill="#E45756">2.67</tspan> · <tspan fill="#4C78A8">2.87</tspan> · <tspan fill="#72B7B2">2.88</tspan> · <tspan fill="#F58518">2.87</tspan></text><text x="443.65" y="645.20" text-anchor="end" font-size="11" font-weight="600"><tspan fill="#E45756">2.41</tspan> · <tspan fill="#4C78A8">2.41</tspan> · <tspan fill="#72B7B2">2.42</tspan> · <tspan fill="#F58518">2.43</tspan></text><text x="347.02" y="307.80" text-anchor="end" font-size="11" font-weight="600"><tspan fill="#E45756">2.95</tspan> · <tspan fill="#4C78A8">2.93</tspan> · <tspan fill="#72B7B2">2.91</tspan> · <tspan fill="#F58518">2.93</tspan></text><text class="chart-note" x="600" y="700" text-anchor="middle">Color-coded values at each axis tip show exact mean scores per model. Near-identical shapes indicate similar quality across all four models.</text></svg>

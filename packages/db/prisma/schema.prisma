@@ -358,6 +358,9 @@ model DocumentChunk {
   content     String                      @db.Text
   // Dimension determined by configured embedding model (no fixed size constraint)
   embedding   Unsupported("vector")?
+  // Lexical full-text index — auto-populated by Postgres trigger on INSERT/UPDATE
+  // (see prisma/migrations/.../migration.sql). Used by BM25 lane of hybrid retrieval.
+  searchVector Unsupported("tsvector")?
   metadata    Json? // section, page, is_table, etc.
   institution Institution?                // Denormalized for query performance
   domain      Domain         @default(PROTOCOL) // Denormalized for query performance
